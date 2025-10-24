@@ -1,10 +1,17 @@
 import SwiftUI
+import AuthenticationServices
 
 struct LoginView: View {
     @StateObject private var appViewModel = AppViewModel()
     @State private var email = ""
     @State private var password = ""
     @State private var showingSignUp = false
+    @State private var showingPasswordReset = false
+    @State private var showingPhoneLogin = false
+    @State private var phoneNumber = ""
+    @State private var otpCode = ""
+    @State private var showingOTP = false
+    @State private var currentNonce: String?
     
     var body: some View {
         NavigationView {
@@ -54,25 +61,90 @@ struct LoginView: View {
                             .foregroundColor(.red)
                             .font(.caption)
                     }
+                    
+                    // Parola Sıfırlama
+                    Button("Şifremi Unuttum") {
+                        showingPasswordReset = true
+                    }
+                    .font(.footnote)
+                    .foregroundColor(.blue)
                 }
                 .padding(.horizontal, 30)
                 
                 Spacer()
                 
-                // Kayıt Ol Linki
-                HStack {
-                    Text("Hesabınız yok mu?")
-                    Button("Kayıt Ol") {
-                        showingSignUp = true
+                // Alternatif Giriş Yöntemleri
+                VStack(spacing: 15) {
+                    // Apple ile Giriş
+                    SignInWithAppleButton(
+                        onRequest: { request in
+                            currentNonce = appViewModel.randomNonceString()
+                            request.requestedScopes = [.fullName, .email]
+                            request.nonce = appViewModel.sha256(currentNonce!)
+                        },
+                        onCompletion: { result in
+                            switch result {
+                            case .success(let authResults):
+                                switch authResults.credential {
+                                case let appleIDCredential as ASAuthorizationAppleIDCredential:
+                                    guard let nonce = currentNonce else {
+                                        fatalError("Invalid state: A login callback was received, but no login request was sent.")
+                                    }
+                                    
+                                    guard let appleIDToken = appleIDCredential.identityToken else {
+                                        fatalError("Invalid state: A login callback was received, but no login request was sent.")
+                                    }
+                                    
+                                    guard let idTokenString = String(data: appleIDToken, encoding: .utf8) else {
+                                        print("Unable to serialize token string from data: \(appleIDToken.debugDescription)")
+                                        return
+                                    }
+                                    
+                                    Task {
+                                        await appViewModel.signInWithApple(idToken: idTokenString, nonce: nonce)
+                                    }
+                                default:
+                                    break
+                                }
+                            case .failure(let error):
+                                print("Apple Sign In failed: \(error.localizedDescription)")
+                            }
+                        }
+                    )
+                    .signInWithAppleButtonStyle(.black)
+                    .frame(height: 50)
+                    .cornerRadius(10)
+                    
+                    // Telefon ile Giriş
+                    Button("Telefon ile Giriş") {
+                        showingPhoneLogin = true
                     }
-                    .foregroundColor(.blue)
+                    .buttonStyle(SecondaryButtonStyle())
+                    
+                    // Kayıt Ol Linki
+                    HStack {
+                        Text("Hesabınız yok mu?")
+                        Button("Kayıt Ol") {
+                            showingSignUp = true
+                        }
+                        .foregroundColor(.blue)
+                    }
+                    .font(.footnote)
                 }
-                .font(.footnote)
             }
             .navigationBarHidden(true)
         }
         .sheet(isPresented: $showingSignUp) {
             SignUpView()
+        }
+        .sheet(isPresented: $showingPasswordReset) {
+            PasswordResetView()
+        }
+        .sheet(isPresented: $showingPhoneLogin) {
+            PhoneLoginView(phoneNumber: $phoneNumber, showingOTP: $showingOTP)
+        }
+        .sheet(isPresented: $showingOTP) {
+            OTPVerificationView(phoneNumber: phoneNumber, otpCode: $otpCode)
         }
     }
 }
@@ -84,6 +156,22 @@ struct PrimaryButtonStyle: ButtonStyle {
             .padding()
             .frame(maxWidth: .infinity)
             .background(Color.blue)
+            .cornerRadius(10)
+            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+    }
+}
+
+struct SecondaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundColor(.blue)
+            .padding()
+            .frame(maxWidth: .infinity)
+            .background(Color.white)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.blue, lineWidth: 1)
+            )
             .cornerRadius(10)
             .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
     }

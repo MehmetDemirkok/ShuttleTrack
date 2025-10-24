@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "VehicleTrackingApp",
+    defaultLocalization: "en",
     platforms: [
         .iOS(.v15)
     ],
@@ -13,8 +14,7 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/firebase/firebase-ios-sdk", from: "10.0.0"),
-        .package(url: "https://github.com/googlemaps/google-maps-ios-utils", from: "4.0.0")
+        .package(url: "https://github.com/firebase/firebase-ios-sdk", from: "10.0.0")
     ],
     targets: [
         .executableTarget(
@@ -22,11 +22,12 @@ let package = Package(
             dependencies: [
                 .product(name: "FirebaseAuth", package: "firebase-ios-sdk"),
                 .product(name: "FirebaseFirestore", package: "firebase-ios-sdk"),
-                .product(name: "FirebaseStorage", package: "firebase-ios-sdk"),
-                .product(name: "GoogleMaps", package: "google-maps-ios-utils"),
-                .product(name: "GoogleMapsUtils", package: "google-maps-ios-utils")
+                .product(name: "FirebaseStorage", package: "firebase-ios-sdk")
             ],
             path: ".",
+            exclude: [
+                "VehicleTrackingApp/"
+            ],
             sources: [
                 "App.swift", 
                 "ContentView.swift",
@@ -34,6 +35,9 @@ let package = Package(
                 "Views/",
                 "Services/",
                 "ViewModels/"
+            ],
+            resources: [
+                .process("GoogleService-Info.plist")
             ]
         ),
     ]
