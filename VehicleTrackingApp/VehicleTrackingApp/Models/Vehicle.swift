@@ -1,6 +1,19 @@
 import Foundation
 import CoreLocation
 
+enum VehicleType: String, CaseIterable, Codable {
+    case sedan = "Sedan"
+    case suv = "SUV"
+    case minivan = "Minivan"
+    case bus = "Otobüs"
+    case van = "Van"
+    case pickup = "Pickup"
+    
+    var displayName: String {
+        return self.rawValue
+    }
+}
+
 struct Vehicle: Identifiable, Codable {
     let id: String
     var plateNumber: String
@@ -8,7 +21,10 @@ struct Vehicle: Identifiable, Codable {
     var brand: String
     var year: Int
     var capacity: Int
+    var vehicleType: VehicleType
     var color: String
+    var insuranceExpiryDate: Date
+    var inspectionExpiryDate: Date
     var isActive: Bool
     var currentLocation: VehicleLocation?
     var companyId: String
@@ -20,8 +36,11 @@ struct Vehicle: Identifiable, Codable {
          model: String, 
          brand: String, 
          year: Int, 
-         capacity: Int, 
+         capacity: Int,
+         vehicleType: VehicleType,
          color: String, 
+         insuranceExpiryDate: Date,
+         inspectionExpiryDate: Date,
          isActive: Bool = true,
          companyId: String) {
         self.id = id
@@ -30,7 +49,10 @@ struct Vehicle: Identifiable, Codable {
         self.brand = brand
         self.year = year
         self.capacity = capacity
+        self.vehicleType = vehicleType
         self.color = color
+        self.insuranceExpiryDate = insuranceExpiryDate
+        self.inspectionExpiryDate = inspectionExpiryDate
         self.isActive = isActive
         self.currentLocation = nil
         self.companyId = companyId
