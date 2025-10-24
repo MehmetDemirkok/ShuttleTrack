@@ -221,6 +221,9 @@ struct ProfileView: View {
                 
                 // Load user profile
                 profileViewModel.loadUserProfile()
+                
+                // Firebase Auth displayName'i güncelle
+                updateFirebaseDisplayName()
             }
             .onDisappear {
                 statisticsService.stopRealTimeUpdates()
@@ -262,11 +265,11 @@ struct ProfileView: View {
     // MARK: - Helper Functions
     private func getUserDisplayName() -> String {
         if let profile = profileViewModel.userProfile {
-            return profile.displayName
+            return profile.displayName.isEmpty ? "Ad Soyad Girin" : profile.displayName
         } else if let user = appViewModel.currentUser {
-            return user.displayName ?? "Kullanıcı"
+            return user.displayName?.isEmpty == false ? user.displayName! : "Ad Soyad Girin"
         }
-        return "Kullanıcı"
+        return "Ad Soyad Girin"
     }
     
     private func getUserEmail() -> String {
@@ -294,6 +297,23 @@ struct ProfileView: View {
             return formatter.string(from: user.metadata.creationDate ?? Date())
         }
         return "Bilinmiyor"
+    }
+    
+    private func updateFirebaseDisplayName() {
+        guard let user = Auth.auth().currentUser,
+              let profile = profileViewModel.userProfile,
+              !profile.displayName.isEmpty,
+              user.displayName != profile.displayName else { return }
+        
+        Task {
+            do {
+                let changeRequest = user.createProfileChangeRequest()
+                changeRequest.displayName = profile.displayName
+                try await changeRequest.commitChanges()
+            } catch {
+                print("Firebase displayName güncellenirken hata: \(error)")
+            }
+        }
     }
 }
 

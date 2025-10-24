@@ -157,7 +157,7 @@ class ProfileViewModel: ObservableObject {
         
         let newProfile = UserProfile(
             userId: user.uid,
-            displayName: user.displayName ?? "Kullanıcı",
+            displayName: user.displayName ?? "",
             email: user.email ?? "",
             companyId: companyId,
             role: .admin
