@@ -1,37 +1,131 @@
 import SwiftUI
+import FirebaseAuth
 
 struct DashboardView: View {
     @StateObject private var appViewModel = AppViewModel()
     @State private var selectedTab = 0
+    @State private var showingProfile = false
     
     var body: some View {
         TabView(selection: $selectedTab) {
             // Ana Sayfa
-            VStack {
-                Text("Araç Takip Sistemi")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                    .padding()
-                
-                Text("Hoş geldiniz!")
-                    .font(.title2)
-                    .foregroundColor(.secondary)
-                
-                Spacer()
-                
-                // Hızlı İstatistikler
-                LazyVGrid(columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
-                ], spacing: 20) {
-                    StatCard(title: "Toplam Araç", value: "12", icon: "car.fill", color: .blue)
-                    StatCard(title: "Aktif Şoför", value: "8", icon: "person.fill", color: .green)
-                    StatCard(title: "Bugünkü İşler", value: "15", icon: "list.bullet", color: .orange)
-                    StatCard(title: "Tamamlanan", value: "23", icon: "checkmark.circle.fill", color: .purple)
+            NavigationView {
+                VStack {
+                    // Welcome Header
+                    VStack(spacing: 16) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Hoş geldiniz!")
+                                    .font(.title2)
+                                    .foregroundColor(.secondary)
+                                
+                                Text(getUserName())
+                                    .font(.title)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.primary)
+                            }
+                            
+                            Spacer()
+                            
+                            // Profile Button
+                            Button(action: {
+                                showingProfile = true
+                            }) {
+                                ZStack {
+                                    Circle()
+                                        .fill(LinearGradient(
+                                            gradient: Gradient(colors: [.blue, .purple]),
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ))
+                                        .frame(width: 50, height: 50)
+                                    
+                                    Text(getUserInitials())
+                                        .font(.system(size: 18, weight: .bold))
+                                        .foregroundColor(.white)
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                        
+                        // Company Info
+                        if let company = appViewModel.currentCompany {
+                            HStack {
+                                Image(systemName: "building.2.fill")
+                                    .foregroundColor(.blue)
+                                
+                                Text(company.name)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                
+                                Spacer()
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
+                    .padding(.top)
+                    
+                    Spacer()
+                    
+                    // Hızlı İstatistikler
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Hızlı İstatistikler")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .padding(.horizontal)
+                        
+                        LazyVGrid(columns: [
+                            GridItem(.flexible()),
+                            GridItem(.flexible())
+                        ], spacing: 16) {
+                            StatCard(title: "Toplam Araç", value: "12", icon: "car.fill", color: .blue)
+                            StatCard(title: "Aktif Şoför", value: "8", icon: "person.fill", color: .green)
+                            StatCard(title: "Bugünkü İşler", value: "15", icon: "list.bullet", color: .orange)
+                            StatCard(title: "Tamamlanan", value: "23", icon: "checkmark.circle.fill", color: .purple)
+                        }
+                        .padding(.horizontal)
+                    }
+                    
+                    Spacer()
+                    
+                    // Quick Actions
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Hızlı İşlemler")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .padding(.horizontal)
+                        
+                        HStack(spacing: 16) {
+                            QuickActionButton(
+                                title: "Araç Ekle",
+                                icon: "plus.circle.fill",
+                                color: .blue
+                            ) {
+                                selectedTab = 1
+                            }
+                            
+                            QuickActionButton(
+                                title: "Şoför Ekle",
+                                icon: "person.badge.plus",
+                                color: .green
+                            ) {
+                                selectedTab = 2
+                            }
+                            
+                            QuickActionButton(
+                                title: "İş Oluştur",
+                                icon: "list.bullet.plus",
+                                color: .orange
+                            ) {
+                                selectedTab = 3
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                    .padding(.bottom)
                 }
-                .padding()
-                
-                Spacer()
+                .navigationTitle("Araç Takip Sistemi")
+                .navigationBarTitleDisplayMode(.large)
             }
             .tabItem {
                 Image(systemName: "house.fill")
@@ -71,39 +165,56 @@ struct DashboardView: View {
                 }
                 .tag(4)
         }
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationBarItems(
-            trailing: Button("Çıkış") {
-                appViewModel.signOut()
-            }
-        )
+        .sheet(isPresented: $showingProfile) {
+            ProfileView()
+        }
+    }
+    
+    // MARK: - Helper Functions
+    private func getUserName() -> String {
+        if let user = appViewModel.currentUser {
+            return user.displayName ?? "Kullanıcı"
+        }
+        return "Kullanıcı"
+    }
+    
+    private func getUserInitials() -> String {
+        let name = getUserName()
+        let components = name.components(separatedBy: " ")
+        if components.count >= 2 {
+            return String(components[0].prefix(1)) + String(components[1].prefix(1))
+        } else {
+            return String(name.prefix(2))
+        }
     }
 }
 
-struct StatCard: View {
+
+struct QuickActionButton: View {
     let title: String
-    let value: String
     let icon: String
     let color: Color
+    let action: () -> Void
     
     var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 30))
-                .foregroundColor(color)
-            
-            Text(value)
-                .font(.title)
-                .fontWeight(.bold)
-            
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundColor(color)
+                
+                Text(title)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(color.opacity(0.1))
+            .cornerRadius(12)
         }
-        .frame(maxWidth: .infinity)
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(10)
+        .buttonStyle(PlainButtonStyle())
     }
 }
 
