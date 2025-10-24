@@ -94,3 +94,4 @@ struct PhoneLoginView_Previews: PreviewProvider {
         PhoneLoginView(phoneNumber: .constant(""), showingOTP: .constant(false))
     }
 }
+

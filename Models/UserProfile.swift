@@ -29,3 +29,4 @@ struct UserProfile: Codable, Identifiable {
         self.lastLoginAt = nil
     }
 }
+

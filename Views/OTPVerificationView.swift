@@ -123,3 +123,4 @@ struct OTPVerificationView_Previews: PreviewProvider {
         OTPVerificationView(phoneNumber: "+905551234567", otpCode: .constant(""))
     }
 }
+
