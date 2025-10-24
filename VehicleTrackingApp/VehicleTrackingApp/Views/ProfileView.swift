@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseAuth
+import Combine
 
 struct ProfileView: View {
     @StateObject private var appViewModel = AppViewModel()
@@ -465,16 +466,16 @@ struct EditProfileView: View {
             Form {
                 Section(header: Text("Kişisel Bilgiler")) {
                     TextField("Ad Soyad", text: $displayName)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .textFieldStyle(ShuttleTrackTextFieldStyle())
                     
                     TextField("E-posta", text: $email)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .textFieldStyle(ShuttleTrackTextFieldStyle())
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
                         .disabled(true) // Email can't be changed easily
                     
                     TextField("Telefon", text: $phoneNumber)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .textFieldStyle(ShuttleTrackTextFieldStyle())
                         .keyboardType(.phonePad)
                     
                     Picker("Rol", selection: $selectedRole) {
@@ -483,6 +484,34 @@ struct EditProfileView: View {
                         }
                     }
                     .pickerStyle(MenuPickerStyle())
+                }
+                
+                Section(header: Text("Şirket Bilgileri")) {
+                    if let company = appViewModel.currentCompany {
+                        HStack {
+                            Text("Şirket Adı")
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(company.name)
+                                .foregroundColor(.primary)
+                        }
+                        
+                        HStack {
+                            Text("Şirket E-posta")
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(company.email)
+                                .foregroundColor(.primary)
+                        }
+                    } else {
+                        HStack {
+                            Text("Şirket Bilgileri")
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text("Yükleniyor...")
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 }
                 
                 Section(header: Text("Güvenlik")) {
@@ -522,6 +551,15 @@ struct EditProfileView: View {
             .onAppear {
                 loadCurrentProfile()
             }
+            .onReceive(profileViewModel.$userProfile) { profile in
+                // ProfileViewModel'den veri geldiğinde form alanlarını güncelle
+                if let profile = profile {
+                    displayName = profile.displayName
+                    email = profile.email
+                    phoneNumber = profile.phoneNumber ?? ""
+                    selectedRole = profile.role
+                }
+            }
             .sheet(isPresented: $showingPasswordChange) {
                 PasswordChangeView(
                     currentPassword: $currentPassword,
@@ -534,14 +572,23 @@ struct EditProfileView: View {
     }
     
     private func loadCurrentProfile() {
+        // Önce ProfileViewModel'den veri yüklemeyi dene
         if let profile = profileViewModel.userProfile {
             displayName = profile.displayName
             email = profile.email
             phoneNumber = profile.phoneNumber ?? ""
             selectedRole = profile.role
-        } else if let user = appViewModel.currentUser {
-            displayName = user.displayName ?? ""
-            email = user.email ?? ""
+        } else {
+            // ProfileViewModel'de veri yoksa Firebase Auth'dan yükle
+            if let user = appViewModel.currentUser {
+                displayName = user.displayName ?? ""
+                email = user.email ?? ""
+                phoneNumber = ""
+                selectedRole = .admin // Default role
+            }
+            
+            // ProfileViewModel'den veri yüklemeyi tekrar dene
+            profileViewModel.loadUserProfile()
         }
     }
     

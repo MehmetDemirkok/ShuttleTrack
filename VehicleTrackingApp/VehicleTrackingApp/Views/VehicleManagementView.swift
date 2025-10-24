@@ -131,6 +131,73 @@ struct VehicleRowView: View {
                 }
             }
             
+            // Sigorta ve Muayene Bilgileri
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Sigorta")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(Color(vehicle.insuranceStatusColor))
+                                .frame(width: 6, height: 6)
+                            
+                            Text(vehicle.insuranceStatus)
+                                .font(.caption)
+                                .foregroundColor(Color(vehicle.insuranceStatusColor))
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Muayene")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(Color(vehicle.inspectionStatusColor))
+                                .frame(width: 6, height: 6)
+                            
+                            Text(vehicle.inspectionStatus)
+                                .font(.caption)
+                                .foregroundColor(Color(vehicle.inspectionStatusColor))
+                        }
+                    }
+                }
+                
+                // Uyarı mesajları
+                if vehicle.daysUntilInsuranceExpiry < 0 || vehicle.daysUntilInspectionExpiry < 0 {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.red)
+                            .font(.caption2)
+                        
+                        Text("Süresi dolmuş belgeler var!")
+                            .font(.caption2)
+                            .foregroundColor(.red)
+                            .fontWeight(.medium)
+                    }
+                    .padding(.top, 2)
+                } else if vehicle.daysUntilInsuranceExpiry <= 30 || vehicle.daysUntilInspectionExpiry <= 30 {
+                    HStack {
+                        Image(systemName: "clock.fill")
+                            .foregroundColor(.orange)
+                            .font(.caption2)
+                        
+                        Text("Yakında süresi dolacak belgeler var!")
+                            .font(.caption2)
+                            .foregroundColor(.orange)
+                            .fontWeight(.medium)
+                    }
+                    .padding(.top, 2)
+                }
+            }
+            .padding(.top, 4)
+            
             HStack {
                 Button("Düzenle") {
                     onEdit()

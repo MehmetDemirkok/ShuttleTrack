@@ -4,6 +4,9 @@ import FirebaseAuth
 struct DashboardView: View {
     @StateObject private var appViewModel = AppViewModel()
     @StateObject private var statisticsService = StatisticsService()
+    @StateObject private var tripViewModel = TripViewModel()
+    @StateObject private var vehicleViewModel = VehicleViewModel()
+    @StateObject private var driverViewModel = DriverViewModel()
     @State private var selectedTab = 0
     @State private var showingProfile = false
     
@@ -15,14 +18,13 @@ struct DashboardView: View {
                     // Welcome Header
                     VStack(spacing: 16) {
                         HStack {
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: ShuttleTrackTheme.Spacing.xs) {
                                 Text("Hoş geldiniz!")
-                                    .font(.title2)
+                                    .shuttleTrackCaption()
                                     .foregroundColor(.secondary)
                                 
                                 Text(getUserName())
-                                    .font(.title)
-                                    .fontWeight(.bold)
+                                    .shuttleTrackSubtitle()
                                     .foregroundColor(.primary)
                             }
                             
@@ -32,19 +34,7 @@ struct DashboardView: View {
                             Button(action: {
                                 showingProfile = true
                             }) {
-                                ZStack {
-                                    Circle()
-                                        .fill(LinearGradient(
-                                            gradient: Gradient(colors: [.blue, .purple]),
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ))
-                                        .frame(width: 50, height: 50)
-                                    
-                                    Text(getUserInitials())
-                                        .font(.system(size: 18, weight: .bold))
-                                        .foregroundColor(.white)
-                                }
+                                CompactLogoView(size: 50)
                             }
                         }
                         .padding(.horizontal)
@@ -191,11 +181,25 @@ struct DashboardView: View {
         }
         .onAppear {
             if let companyId = appViewModel.currentCompany?.id {
+                print("🏠 Dashboard yüklendi - Company ID: \(companyId)")
                 statisticsService.startRealTimeUpdates(for: companyId)
+                statisticsService.fetchStatistics(for: companyId) // Manuel istatistik yükleme
+                tripViewModel.fetchTrips(for: companyId)
+                vehicleViewModel.fetchVehicles(for: companyId)
+                driverViewModel.fetchDrivers(for: companyId)
+            } else {
+                print("⚠️ Dashboard: Company ID bulunamadı")
             }
         }
         .onDisappear {
             statisticsService.stopRealTimeUpdates()
+        }
+        .alert("İstatistik Hatası", isPresented: .constant(!statisticsService.errorMessage.isEmpty)) {
+            Button("Tamam") {
+                statisticsService.clearError()
+            }
+        } message: {
+            Text(statisticsService.errorMessage)
         }
     }
     

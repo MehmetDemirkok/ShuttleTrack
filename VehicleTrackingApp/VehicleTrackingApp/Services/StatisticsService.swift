@@ -14,6 +14,7 @@ class StatisticsService: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     
     func fetchStatistics(for companyId: String) {
+        print("📊 İstatistikler yükleniyor - Company ID: \(companyId)")
         isLoading = true
         errorMessage = ""
         
@@ -24,6 +25,7 @@ class StatisticsService: ObservableObject {
         group.enter()
         fetchVehicleCount(for: companyId) { [weak self] count in
             DispatchQueue.main.async {
+                print("🚗 Araç sayısı: \(count)")
                 self?.totalVehicles = count
                 group.leave()
             }
@@ -33,6 +35,7 @@ class StatisticsService: ObservableObject {
         group.enter()
         fetchActiveDriverCount(for: companyId) { [weak self] count in
             DispatchQueue.main.async {
+                print("👨‍💼 Aktif şoför sayısı: \(count)")
                 self?.activeDrivers = count
                 group.leave()
             }
@@ -42,6 +45,7 @@ class StatisticsService: ObservableObject {
         group.enter()
         fetchTodaysTripCount(for: companyId) { [weak self] count in
             DispatchQueue.main.async {
+                print("📅 Bugünkü işler: \(count)")
                 self?.todaysTrips = count
                 group.leave()
             }
@@ -51,12 +55,14 @@ class StatisticsService: ObservableObject {
         group.enter()
         fetchCompletedTripCount(for: companyId) { [weak self] count in
             DispatchQueue.main.async {
+                print("✅ Tamamlanan işler: \(count)")
                 self?.completedTrips = count
                 group.leave()
             }
         }
         
         group.notify(queue: .main) { [weak self] in
+            print("📊 İstatistikler yüklendi - Araç: \(self?.totalVehicles ?? 0), Şoför: \(self?.activeDrivers ?? 0), Bugün: \(self?.todaysTrips ?? 0), Tamamlanan: \(self?.completedTrips ?? 0)")
             self?.isLoading = false
         }
     }
@@ -66,12 +72,16 @@ class StatisticsService: ObservableObject {
             .whereField("companyId", isEqualTo: companyId)
             .getDocuments { snapshot, error in
                 if let error = error {
-                    print("Error fetching vehicles: \(error)")
+                    print("❌ Araç sayısı yüklenirken hata: \(error.localizedDescription)")
+                    DispatchQueue.main.async {
+                        self.errorMessage = "Araç verileri yüklenemedi: \(error.localizedDescription)"
+                    }
                     completion(0)
                     return
                 }
                 
                 let count = snapshot?.documents.count ?? 0
+                print("🚗 Araç sayısı başarıyla yüklendi: \(count)")
                 completion(count)
             }
     }
@@ -93,39 +103,48 @@ class StatisticsService: ObservableObject {
     }
     
     private func fetchTodaysTripCount(for companyId: String, completion: @escaping (Int) -> Void) {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
-        
+        // Index gerektirmeyen yaklaşım: Tüm trip'leri çek ve client-side filtrele
         db.collection("trips")
             .whereField("companyId", isEqualTo: companyId)
-            .whereField("pickupTime", isGreaterThanOrEqualTo: today)
-            .whereField("pickupTime", isLessThan: tomorrow)
             .getDocuments { snapshot, error in
                 if let error = error {
-                    print("Error fetching today's trips: \(error)")
+                    print("Error fetching trips: \(error)")
                     completion(0)
                     return
                 }
                 
-                let count = snapshot?.documents.count ?? 0
-                completion(count)
+                let calendar = Calendar.current
+                let today = calendar.startOfDay(for: Date())
+                let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+                
+                let todaysTrips = snapshot?.documents.compactMap { document in
+                    try? document.data(as: Trip.self)
+                }.filter { trip in
+                    trip.pickupTime >= today && trip.pickupTime < tomorrow
+                }.count ?? 0
+                
+                completion(todaysTrips)
             }
     }
     
     private func fetchCompletedTripCount(for companyId: String, completion: @escaping (Int) -> Void) {
+        // Index gerektirmeyen yaklaşım: Tüm trip'leri çek ve client-side filtrele
         db.collection("trips")
             .whereField("companyId", isEqualTo: companyId)
-            .whereField("status", isEqualTo: "completed")
             .getDocuments { snapshot, error in
                 if let error = error {
-                    print("Error fetching completed trips: \(error)")
+                    print("Error fetching trips: \(error)")
                     completion(0)
                     return
                 }
                 
-                let count = snapshot?.documents.count ?? 0
-                completion(count)
+                let completedTrips = snapshot?.documents.compactMap { document in
+                    try? document.data(as: Trip.self)
+                }.filter { trip in
+                    trip.status == .completed
+                }.count ?? 0
+                
+                completion(completedTrips)
             }
     }
     
@@ -158,36 +177,47 @@ class StatisticsService: ObservableObject {
                 }
             }
         
-        // Bugünkü işler listener
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
-        
+        // Bugünkü işler listener - Index gerektirmeyen yaklaşım
         db.collection("trips")
             .whereField("companyId", isEqualTo: companyId)
-            .whereField("pickupTime", isGreaterThanOrEqualTo: today)
-            .whereField("pickupTime", isLessThan: tomorrow)
             .addSnapshotListener { [weak self] snapshot, error in
                 DispatchQueue.main.async {
                     if let error = error {
-                        print("Error listening to today's trips: \(error)")
+                        print("Error listening to trips: \(error)")
                         return
                     }
-                    self?.todaysTrips = snapshot?.documents.count ?? 0
+                    
+                    let calendar = Calendar.current
+                    let today = calendar.startOfDay(for: Date())
+                    let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+                    
+                    let todaysTrips = snapshot?.documents.compactMap { document in
+                        try? document.data(as: Trip.self)
+                    }.filter { trip in
+                        trip.pickupTime >= today && trip.pickupTime < tomorrow
+                    }.count ?? 0
+                    
+                    self?.todaysTrips = todaysTrips
                 }
             }
         
-        // Tamamlanan işler listener
+        // Tamamlanan işler listener - Index gerektirmeyen yaklaşım
         db.collection("trips")
             .whereField("companyId", isEqualTo: companyId)
-            .whereField("status", isEqualTo: "completed")
             .addSnapshotListener { [weak self] snapshot, error in
                 DispatchQueue.main.async {
                     if let error = error {
-                        print("Error listening to completed trips: \(error)")
+                        print("Error listening to trips: \(error)")
                         return
                     }
-                    self?.completedTrips = snapshot?.documents.count ?? 0
+                    
+                    let completedTrips = snapshot?.documents.compactMap { document in
+                        try? document.data(as: Trip.self)
+                    }.filter { trip in
+                        trip.status == .completed
+                    }.count ?? 0
+                    
+                    self?.completedTrips = completedTrips
                 }
             }
     }
@@ -195,5 +225,16 @@ class StatisticsService: ObservableObject {
     func stopRealTimeUpdates() {
         // Listener'ları durdur
         cancellables.removeAll()
+    }
+    
+    // İstatistikleri manuel olarak yenile
+    func refreshStatistics(for companyId: String) {
+        print("🔄 İstatistikler yenileniyor...")
+        fetchStatistics(for: companyId)
+    }
+    
+    // Hata mesajını temizle
+    func clearError() {
+        errorMessage = ""
     }
 }

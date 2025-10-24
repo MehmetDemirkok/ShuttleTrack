@@ -54,7 +54,7 @@ struct AddEditVehicleView: View {
                     TextField("Model", text: $model)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                     
-                    Stepper("Yıl: \(year)", value: $year, in: 1990...Calendar.current.component(.year, from: Date()))
+                    Stepper("Yıl: \(formattedYear)", value: $year, in: 1990...Calendar.current.component(.year, from: Date()))
                     
                     Stepper("Kapasite: \(capacity) kişi", value: $capacity, in: 1...50)
                     
@@ -70,13 +70,57 @@ struct AddEditVehicleView: View {
                 }
                 
                 Section(header: Text("Sigorta ve Muayene")) {
-                    DatePicker("Sigorta Bitiş Tarihi", 
-                              selection: $insuranceExpiryDate, 
-                              displayedComponents: .date)
+                    VStack(alignment: .leading, spacing: 8) {
+                        DatePicker("Sigorta Bitiş Tarihi", 
+                                  selection: $insuranceExpiryDate, 
+                                  displayedComponents: .date)
+                        
+                        // Sigorta kalan gün sayısı
+                        HStack {
+                            Text("Sigorta Durumu:")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Spacer()
+                            
+                            let insuranceDays = daysUntilExpiry(insuranceExpiryDate)
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(insuranceDays < 0 ? Color.red : (insuranceDays <= 30 ? Color.orange : Color.green))
+                                    .frame(width: 6, height: 6)
+                                
+                                Text(insuranceDays < 0 ? "Süresi Dolmuş" : (insuranceDays <= 30 ? "\(insuranceDays) gün kaldı" : "Geçerli"))
+                                    .font(.caption)
+                                    .foregroundColor(insuranceDays < 0 ? .red : (insuranceDays <= 30 ? .orange : .green))
+                            }
+                        }
+                    }
                     
-                    DatePicker("Muayene Bitiş Tarihi", 
-                              selection: $inspectionExpiryDate, 
-                              displayedComponents: .date)
+                    VStack(alignment: .leading, spacing: 8) {
+                        DatePicker("Muayene Bitiş Tarihi", 
+                                  selection: $inspectionExpiryDate, 
+                                  displayedComponents: .date)
+                        
+                        // Muayene kalan gün sayısı
+                        HStack {
+                            Text("Muayene Durumu:")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Spacer()
+                            
+                            let inspectionDays = daysUntilExpiry(inspectionExpiryDate)
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(inspectionDays < 0 ? Color.red : (inspectionDays <= 30 ? Color.orange : Color.green))
+                                    .frame(width: 6, height: 6)
+                                
+                                Text(inspectionDays < 0 ? "Süresi Dolmuş" : (inspectionDays <= 30 ? "\(inspectionDays) gün kaldı" : "Geçerli"))
+                                    .font(.caption)
+                                    .foregroundColor(inspectionDays < 0 ? .red : (inspectionDays <= 30 ? .orange : .green))
+                            }
+                        }
+                    }
                 }
                 
                 Section(header: Text("Durum")) {
@@ -103,6 +147,20 @@ struct AddEditVehicleView: View {
                 .disabled(isLoading || plateNumber.isEmpty || brand.isEmpty || model.isEmpty)
             )
         }
+    }
+    
+    // Yıl değerini formatla
+    private var formattedYear: String {
+        return "\(year)"
+    }
+    
+    // Kalan gün sayısını hesapla
+    private func daysUntilExpiry(_ date: Date) -> Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let expiryDate = calendar.startOfDay(for: date)
+        let days = calendar.dateComponents([.day], from: today, to: expiryDate).day ?? 0
+        return days
     }
     
     private func saveVehicle() {

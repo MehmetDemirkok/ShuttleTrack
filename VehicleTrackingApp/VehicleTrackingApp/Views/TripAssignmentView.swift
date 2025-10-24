@@ -178,14 +178,16 @@ struct TripRowView: View {
                 }
             }
             
-            HStack {
+            HStack(spacing: 12) {
                 Button("Düzenle") {
                     onEdit()
                 }
                 .font(.caption)
                 .foregroundColor(.blue)
-                
-                Spacer()
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.blue.opacity(0.1))
+                .cornerRadius(6)
                 
                 if trip.status != .completed && trip.status != .cancelled {
                     Menu("Durum") {
@@ -199,15 +201,21 @@ struct TripRowView: View {
                     }
                     .font(.caption)
                     .foregroundColor(.orange)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(6)
                 }
-                
-                Spacer()
                 
                 Button("Sil") {
                     onDelete()
                 }
                 .font(.caption)
                 .foregroundColor(.red)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.red.opacity(0.1))
+                .cornerRadius(6)
             }
         }
         .padding(.vertical, 4)

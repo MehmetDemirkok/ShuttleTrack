@@ -134,6 +134,15 @@ struct AddEditTripView: View {
     }
     
     private func loadData() {
+        // Şirket bilgisi yüklenene kadar bekle
+        if appViewModel.currentCompany == nil {
+            // Şirket bilgisi yüklenene kadar kısa bir süre bekle
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.loadData()
+            }
+            return
+        }
+        
         guard let companyId = appViewModel.currentCompany?.id else { return }
         viewModel.fetchVehicles(for: companyId)
         viewModel.fetchDrivers(for: companyId)
@@ -142,6 +151,15 @@ struct AddEditTripView: View {
     private func saveTrip() {
         isLoading = true
         errorMessage = ""
+        
+        // Şirket bilgisi yüklenene kadar bekle
+        if appViewModel.currentCompany == nil {
+            errorMessage = "Şirket bilgileri yükleniyor, lütfen bekleyin..."
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                self.saveTrip()
+            }
+            return
+        }
         
         guard let companyId = appViewModel.currentCompany?.id else {
             errorMessage = "Şirket bilgisi bulunamadı"
@@ -173,12 +191,14 @@ struct AddEditTripView: View {
             viewModel.addTrip(newTrip)
         }
         
-        // Simulate save completion
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+        // Wait for save completion and check for errors
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
             isLoading = false
             if viewModel.errorMessage.isEmpty {
+                // Success - dismiss the view
                 presentationMode.wrappedValue.dismiss()
             } else {
+                // Show error message
                 errorMessage = viewModel.errorMessage
             }
         }

@@ -71,6 +71,72 @@ struct Vehicle: Identifiable, Codable {
     var statusColor: String {
         return isActive ? "green" : "red"
     }
+    
+    // Sigorta bitiş tarihine kalan gün sayısı
+    var daysUntilInsuranceExpiry: Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let expiryDate = calendar.startOfDay(for: insuranceExpiryDate)
+        let days = calendar.dateComponents([.day], from: today, to: expiryDate).day ?? 0
+        return days
+    }
+    
+    // Muayene bitiş tarihine kalan gün sayısı
+    var daysUntilInspectionExpiry: Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let expiryDate = calendar.startOfDay(for: inspectionExpiryDate)
+        let days = calendar.dateComponents([.day], from: today, to: expiryDate).day ?? 0
+        return days
+    }
+    
+    // Sigorta durumu
+    var insuranceStatus: String {
+        let days = daysUntilInsuranceExpiry
+        if days < 0 {
+            return "Süresi Dolmuş"
+        } else if days <= 30 {
+            return "\(days) gün kaldı"
+        } else {
+            return "Geçerli"
+        }
+    }
+    
+    // Muayene durumu
+    var inspectionStatus: String {
+        let days = daysUntilInspectionExpiry
+        if days < 0 {
+            return "Süresi Dolmuş"
+        } else if days <= 30 {
+            return "\(days) gün kaldı"
+        } else {
+            return "Geçerli"
+        }
+    }
+    
+    // Sigorta durum rengi
+    var insuranceStatusColor: String {
+        let days = daysUntilInsuranceExpiry
+        if days < 0 {
+            return "red"
+        } else if days <= 30 {
+            return "orange"
+        } else {
+            return "green"
+        }
+    }
+    
+    // Muayene durum rengi
+    var inspectionStatusColor: String {
+        let days = daysUntilInspectionExpiry
+        if days < 0 {
+            return "red"
+        } else if days <= 30 {
+            return "orange"
+        } else {
+            return "green"
+        }
+    }
 }
 
 struct VehicleLocation: Codable {

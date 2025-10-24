@@ -16,7 +16,6 @@ class DriverViewModel: ObservableObject {
         
         db.collection("drivers")
             .whereField("companyId", isEqualTo: companyId)
-            .order(by: "createdAt", descending: true)
             .addSnapshotListener { [weak self] snapshot, error in
                 DispatchQueue.main.async {
                     self?.isLoading = false
@@ -31,9 +30,11 @@ class DriverViewModel: ObservableObject {
                         return
                     }
                     
-                    self?.drivers = documents.compactMap { document in
+                    let drivers = documents.compactMap { document in
                         try? document.data(as: Driver.self)
                     }
+                    // Client-side sorting to avoid index requirement
+                    self?.drivers = drivers.sorted { $0.createdAt > $1.createdAt }
                 }
             }
     }

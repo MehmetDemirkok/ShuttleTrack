@@ -18,7 +18,6 @@ class TripViewModel: ObservableObject {
         
         db.collection("trips")
             .whereField("companyId", isEqualTo: companyId)
-            .order(by: "pickupTime", descending: false)
             .addSnapshotListener { [weak self] snapshot, error in
                 DispatchQueue.main.async {
                     self?.isLoading = false
@@ -33,9 +32,12 @@ class TripViewModel: ObservableObject {
                         return
                     }
                     
-                    self?.trips = documents.compactMap { document in
+                    let trips = documents.compactMap { document in
                         try? document.data(as: Trip.self)
                     }
+                    
+                    // Client-side sorting to avoid index requirement
+                    self?.trips = trips.sorted { $0.pickupTime < $1.pickupTime }
                 }
             }
     }
@@ -96,6 +98,9 @@ class TripViewModel: ObservableObject {
                     self?.isLoading = false
                     if let error = error {
                         self?.errorMessage = error.localizedDescription
+                        print("Error adding trip: \(error)")
+                    } else {
+                        print("Trip added successfully: \(trip.id)")
                     }
                 }
             }
@@ -103,6 +108,7 @@ class TripViewModel: ObservableObject {
             DispatchQueue.main.async {
                 self.isLoading = false
                 self.errorMessage = error.localizedDescription
+                print("Error encoding trip: \(error)")
             }
         }
     }
@@ -140,6 +146,9 @@ class TripViewModel: ObservableObject {
                 self?.isLoading = false
                 if let error = error {
                     self?.errorMessage = error.localizedDescription
+                    print("Error deleting trip: \(error)")
+                } else {
+                    print("Trip deleted successfully: \(trip.id)")
                 }
             }
         }
@@ -151,6 +160,7 @@ class TripViewModel: ObservableObject {
         updatedTrip.updatedAt = Date()
         
         updateTrip(updatedTrip)
+        print("Trip status updated to: \(status.displayName) for trip: \(trip.id)")
     }
     
     func assignTrip(_ trip: Trip, vehicleId: String?, driverId: String?) {

@@ -11,67 +11,94 @@ struct LoginView: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 20) {
+            VStack(spacing: ShuttleTrackTheme.Spacing.xl) {
                 // Logo ve Başlık
-                VStack(spacing: 10) {
-                    Image(systemName: "car.fill")
-                        .font(.system(size: 60))
-                        .foregroundColor(.blue)
+                VStack(spacing: ShuttleTrackTheme.Spacing.lg) {
+                    LogoView(size: 120)
+                        .padding(.top, ShuttleTrackTheme.Spacing.xxl)
                     
-                    Text("Araç Takip Sistemi")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
-                    
-                    Text("Havalimanı Transfer Yönetimi")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                    VStack(spacing: ShuttleTrackTheme.Spacing.sm) {
+                        Text("Hoş Geldiniz!")
+                            .shuttleTrackTitle()
+                        
+                        Text("ShuttleTrack ile araçlarınızı takip edin")
+                            .shuttleTrackCaption()
+                            .multilineTextAlignment(.center)
+                    }
                 }
-                .padding(.top, 50)
                 
                 Spacer()
                 
                 // Giriş Formu
-                VStack(spacing: 15) {
-                    TextField("E-posta", text: $email)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .keyboardType(.emailAddress)
-                        .autocapitalization(.none)
-                    
-                    SecureField("Şifre", text: $password)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                    
-                    if !errorMessage.isEmpty {
-                        Text(errorMessage)
-                            .foregroundColor(.red)
-                            .font(.caption)
-                    }
-                    
-                    Button(action: signIn) {
-                        HStack {
-                            if isLoading {
-                                ProgressView()
-                                    .scaleEffect(0.8)
-                            }
-                            Text("Giriş Yap")
+                ShuttleTrackCard {
+                    VStack(spacing: ShuttleTrackTheme.Spacing.md) {
+                        // Email Field
+                        VStack(alignment: .leading, spacing: ShuttleTrackTheme.Spacing.sm) {
+                            Text("E-posta")
+                                .shuttleTrackCaption()
+                                .foregroundColor(.primary)
+                            
+                            TextField("ornek@email.com", text: $email)
+                                .textFieldStyle(ShuttleTrackTextFieldStyle())
+                                .keyboardType(.emailAddress)
+                                .autocapitalization(.none)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
+                        
+                        // Password Field
+                        VStack(alignment: .leading, spacing: ShuttleTrackTheme.Spacing.sm) {
+                            Text("Şifre")
+                                .shuttleTrackCaption()
+                                .foregroundColor(.primary)
+                            
+                            SecureField("••••••••", text: $password)
+                                .textFieldStyle(ShuttleTrackTextFieldStyle())
+                        }
+                        
+                        // Error Message
+                        if !errorMessage.isEmpty {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(ShuttleTrackTheme.Colors.error)
+                                Text(errorMessage)
+                                    .shuttleTrackCaption()
+                                    .foregroundColor(ShuttleTrackTheme.Colors.error)
+                            }
+                            .padding(.top, ShuttleTrackTheme.Spacing.sm)
+                        }
+                        
+                        // Login Button
+                        Button(action: signIn) {
+                            HStack {
+                                if isLoading {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                        .foregroundColor(.white)
+                                }
+                                Text("Giriş Yap")
+                            }
+                        }
+                        .buttonStyle(ShuttleTrackButtonStyle(variant: .primary, size: .large))
+                        .disabled(isLoading || email.isEmpty || password.isEmpty)
+                        .padding(.top, ShuttleTrackTheme.Spacing.md)
                     }
-                    .disabled(isLoading || email.isEmpty || password.isEmpty)
+                }
+                .padding(.horizontal, ShuttleTrackTheme.Spacing.lg)
+                
+                // Sign Up Link
+                HStack {
+                    Text("Hesabınız yok mu?")
+                        .shuttleTrackCaption()
                     
-                    Button("Hesap Oluştur") {
+                    Button("Kayıt Ol") {
                         showingSignUp = true
                     }
-                    .foregroundColor(.blue)
+                    .foregroundColor(ShuttleTrackTheme.Colors.primaryBlue)
+                    .font(.system(size: 14, weight: .semibold))
                 }
-                .padding(.horizontal, 30)
                 
                 Spacer()
             }
+            .background(ShuttleTrackTheme.Colors.background)
             .navigationBarHidden(true)
         }
         .sheet(isPresented: $showingSignUp) {

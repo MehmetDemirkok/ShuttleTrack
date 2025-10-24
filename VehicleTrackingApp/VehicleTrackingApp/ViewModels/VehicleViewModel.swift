@@ -16,7 +16,6 @@ class VehicleViewModel: ObservableObject {
         
         db.collection("vehicles")
             .whereField("companyId", isEqualTo: companyId)
-            .order(by: "createdAt", descending: true)
             .addSnapshotListener { [weak self] snapshot, error in
                 DispatchQueue.main.async {
                     self?.isLoading = false
@@ -31,9 +30,11 @@ class VehicleViewModel: ObservableObject {
                         return
                     }
                     
-                    self?.vehicles = documents.compactMap { document in
+                    let vehicles = documents.compactMap { document in
                         try? document.data(as: Vehicle.self)
                     }
+                    // Client-side sorting to avoid index requirement
+                    self?.vehicles = vehicles.sorted { $0.createdAt > $1.createdAt }
                 }
             }
     }

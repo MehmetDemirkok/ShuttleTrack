@@ -9,7 +9,7 @@ import SwiftUI
 import FirebaseCore
 
 @main
-struct VehicleTrackingAppApp: App {
+struct ShuttleTrackApp: App {
     @StateObject private var appViewModel = AppViewModel()
     
     init() {
