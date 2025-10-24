@@ -134,6 +134,7 @@ struct DriverRowView: View {
             
             HStack {
                 Button("Düzenle") {
+                    print("🔧 DriverRowView: Düzenle butonuna tıklandı - Driver: \(driver.fullName)")
                     onEdit()
                 }
                 .font(.caption)
@@ -150,6 +151,7 @@ struct DriverRowView: View {
                 Spacer()
                 
                 Button("Sil") {
+                    print("🗑️ DriverRowView: Sil butonuna tıklandı - Driver: \(driver.fullName)")
                     onDelete()
                 }
                 .font(.caption)

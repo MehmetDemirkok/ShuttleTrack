@@ -12,8 +12,19 @@ struct VehicleManagementView: View {
         NavigationView {
             VStack {
                 if viewModel.isLoading {
-                    ProgressView("Araçlar yükleniyor...")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                        
+                        Text("Araçlar yükleniyor...")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                        
+                        Text("Bu işlem birkaç saniye sürebilir")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if viewModel.vehicles.isEmpty {
                     VStack(spacing: 20) {
                         Image(systemName: "car.fill")
@@ -44,8 +55,11 @@ struct VehicleManagementView: View {
                                     viewModel.toggleVehicleStatus(vehicle)
                                 }
                             )
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            .listRowSeparator(.hidden)
                         }
                     }
+                    .listStyle(PlainListStyle())
                 }
                 
                 if !viewModel.errorMessage.isEmpty {
@@ -97,36 +111,115 @@ struct VehicleRowView: View {
     let onDelete: () -> Void
     let onToggleStatus: () -> Void
     
+    // Araç ikonu
+    private var vehicleIcon: String {
+        switch vehicle.vehicleType {
+        case .sedan:
+            return "car.fill"
+        case .suv:
+            return "car.fill"
+        case .minivan:
+            return "car.fill"
+        case .bus:
+            return "bus.fill"
+        case .van:
+            return "car.fill"
+        case .pickup:
+            return "car.fill"
+        }
+    }
+    
+    // Araç ikon rengi
+    private var vehicleIconColor: Color {
+        switch vehicle.vehicleType {
+        case .sedan:
+            return .blue
+        case .suv:
+            return .green
+        case .minivan:
+            return .orange
+        case .bus:
+            return .purple
+        case .van:
+            return .red
+        case .pickup:
+            return .brown
+        }
+    }
+    
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(vehicle.displayName)
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    Text("\(vehicle.year) • \(vehicle.capacity) kişi • \(vehicle.color)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+        VStack(alignment: .leading, spacing: 12) {
+            // Ana bilgi kartı
+            HStack(alignment: .top, spacing: 12) {
+                // Araç ikonu
+                VStack {
+                    Image(systemName: vehicleIcon)
+                        .font(.title2)
+                        .foregroundColor(vehicleIconColor)
+                        .frame(width: 40, height: 40)
+                        .background(vehicleIconColor.opacity(0.1))
+                        .cornerRadius(8)
                 }
                 
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
+                VStack(alignment: .leading, spacing: 6) {
+                    // Araç adı ve plaka
                     HStack {
-                        Circle()
-                            .fill(Color(vehicle.statusColor))
-                            .frame(width: 8, height: 8)
+                        Text(vehicle.displayName)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.primary)
                         
-                        Text(vehicle.statusText)
-                            .font(.caption)
-                            .foregroundColor(Color(vehicle.statusColor))
+                        Spacer()
+                        
+                        // Durum badge'i
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(vehicle.isActive ? Color.green : Color.red)
+                                .frame(width: 6, height: 6)
+                            
+                            Text(vehicle.statusText)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(vehicle.isActive ? .green : .red)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background((vehicle.isActive ? Color.green : Color.red).opacity(0.1))
+                        .cornerRadius(12)
                     }
                     
-                    if let location = vehicle.currentLocation {
-                        Text("📍 Konum mevcut")
-                            .font(.caption2)
-                            .foregroundColor(.blue)
+                    // Araç detayları
+                    HStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Yıl")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Text("\(String(vehicle.year))")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Kapasite")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Text("\(vehicle.capacity) kişi")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Renk")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Text(vehicle.color)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
+                        }
+                        
+                        Spacer()
                     }
                 }
             }
@@ -198,31 +291,72 @@ struct VehicleRowView: View {
             }
             .padding(.top, 4)
             
-            HStack {
-                Button("Düzenle") {
+            // Modern buton tasarımı
+            HStack(spacing: 12) {
+                Button(action: {
+                    print("🔧 VehicleRowView: Düzenle butonuna tıklandı - Vehicle: \(vehicle.displayName)")
                     onEdit()
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "pencil")
+                            .font(.caption)
+                        Text("Düzenle")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.blue)
+                    .cornerRadius(8)
                 }
-                .font(.caption)
-                .foregroundColor(.blue)
                 
                 Spacer()
                 
-                Button(vehicle.isActive ? "Pasifleştir" : "Aktifleştir") {
-                    onToggleStatus()
+                Button(action: onToggleStatus) {
+                    HStack(spacing: 4) {
+                        Image(systemName: vehicle.isActive ? "pause.circle" : "play.circle")
+                            .font(.caption)
+                        Text(vehicle.isActive ? "Pasifleştir" : "Aktifleştir")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(vehicle.isActive ? Color.orange : Color.green)
+                    .cornerRadius(8)
                 }
-                .font(.caption)
-                .foregroundColor(vehicle.isActive ? .orange : .green)
                 
                 Spacer()
                 
-                Button("Sil") {
+                Button(action: {
+                    print("🗑️ VehicleRowView: Sil butonuna tıklandı - Vehicle: \(vehicle.displayName)")
                     onDelete()
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "trash")
+                            .font(.caption)
+                        Text("Sil")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.red)
+                    .cornerRadius(8)
                 }
-                .font(.caption)
-                .foregroundColor(.red)
             }
         }
-        .padding(.vertical, 4)
+        .padding(16)
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color(.systemGray5), lineWidth: 1)
+        )
     }
 }
 

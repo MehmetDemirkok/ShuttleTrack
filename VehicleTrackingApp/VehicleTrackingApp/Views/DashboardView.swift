@@ -125,7 +125,7 @@ struct DashboardView: View {
                             
                             QuickActionButton(
                                 title: "İş Oluştur",
-                                icon: "list.bullet.plus",
+                                icon: "list.bullet",
                                 color: .orange
                             ) {
                                 selectedTab = 3
@@ -182,11 +182,30 @@ struct DashboardView: View {
         .onAppear {
             if let companyId = appViewModel.currentCompany?.id {
                 print("🏠 Dashboard yüklendi - Company ID: \(companyId)")
+                
+                // İstatistikleri hemen yükle (main thread'de)
                 statisticsService.startRealTimeUpdates(for: companyId)
-                statisticsService.fetchStatistics(for: companyId) // Manuel istatistik yükleme
-                tripViewModel.fetchTrips(for: companyId)
-                vehicleViewModel.fetchVehicles(for: companyId)
-                driverViewModel.fetchDrivers(for: companyId)
+                statisticsService.fetchStatistics(for: companyId)
+                
+                // Diğer verileri paralel yükle
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let group = DispatchGroup()
+                    
+                    group.enter()
+                    tripViewModel.fetchTrips(for: companyId)
+                    group.leave()
+                    
+                    group.enter()
+                    vehicleViewModel.fetchVehicles(for: companyId)
+                    group.leave()
+                    
+                    group.enter()
+                    driverViewModel.fetchDrivers(for: companyId)
+                    group.leave()
+                    
+                    group.wait()
+                    print("✅ Tüm veriler yüklendi")
+                }
             } else {
                 print("⚠️ Dashboard: Company ID bulunamadı")
             }

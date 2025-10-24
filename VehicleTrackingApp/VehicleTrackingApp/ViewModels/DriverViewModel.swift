@@ -14,14 +14,17 @@ class DriverViewModel: ObservableObject {
         isLoading = true
         errorMessage = ""
         
+        // Optimize edilmiş sorgu
         db.collection("drivers")
             .whereField("companyId", isEqualTo: companyId)
+            .limit(to: 50) // Maksimum 50 şoför
             .addSnapshotListener { [weak self] snapshot, error in
                 DispatchQueue.main.async {
                     self?.isLoading = false
                     
                     if let error = error {
                         self?.errorMessage = error.localizedDescription
+                        print("❌ Driver fetch error: \(error.localizedDescription)")
                         return
                     }
                     
@@ -29,6 +32,8 @@ class DriverViewModel: ObservableObject {
                         self?.drivers = []
                         return
                     }
+                    
+                    print("👨‍💼 Fetched \(documents.count) drivers")
                     
                     let drivers = documents.compactMap { document in
                         try? document.data(as: Driver.self)

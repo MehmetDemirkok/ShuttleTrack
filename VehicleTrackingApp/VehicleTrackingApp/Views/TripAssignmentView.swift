@@ -180,6 +180,7 @@ struct TripRowView: View {
             
             HStack(spacing: 12) {
                 Button("Düzenle") {
+                    print("🔧 TripRowView: Düzenle butonuna tıklandı - Trip: \(trip.title)")
                     onEdit()
                 }
                 .font(.caption)
@@ -208,6 +209,7 @@ struct TripRowView: View {
                 }
                 
                 Button("Sil") {
+                    print("🗑️ TripRowView: Sil butonuna tıklandı - Trip: \(trip.title)")
                     onDelete()
                 }
                 .font(.caption)

@@ -16,14 +16,17 @@ class TripViewModel: ObservableObject {
         isLoading = true
         errorMessage = ""
         
+        // Index gerektirmeyen basit sorgu
         db.collection("trips")
             .whereField("companyId", isEqualTo: companyId)
+            .limit(to: 50) // Maksimum 50 trip
             .addSnapshotListener { [weak self] snapshot, error in
                 DispatchQueue.main.async {
                     self?.isLoading = false
                     
                     if let error = error {
                         self?.errorMessage = error.localizedDescription
+                        print("❌ Trip fetch error: \(error.localizedDescription)")
                         return
                     }
                     
@@ -32,12 +35,18 @@ class TripViewModel: ObservableObject {
                         return
                     }
                     
+                    print("🚌 Fetched \(documents.count) trips")
+                    
                     let trips = documents.compactMap { document in
                         try? document.data(as: Trip.self)
                     }
                     
+                    // Client-side filtering - son 30 gün
+                    let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
+                    let filteredTrips = trips.filter { $0.pickupTime >= thirtyDaysAgo }
+                    
                     // Client-side sorting to avoid index requirement
-                    self?.trips = trips.sorted { $0.pickupTime < $1.pickupTime }
+                    self?.trips = filteredTrips.sorted { $0.pickupTime < $1.pickupTime }
                 }
             }
     }

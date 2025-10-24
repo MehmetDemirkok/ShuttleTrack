@@ -23,9 +23,10 @@ class StatisticsService: ObservableObject {
         
         // Araç sayısı
         group.enter()
+        print("🚗 Araç sayısı sorgusu başlatılıyor...")
         fetchVehicleCount(for: companyId) { [weak self] count in
             DispatchQueue.main.async {
-                print("🚗 Araç sayısı: \(count)")
+                print("🚗 Araç sayısı sonucu: \(count)")
                 self?.totalVehicles = count
                 group.leave()
             }
@@ -33,9 +34,10 @@ class StatisticsService: ObservableObject {
         
         // Aktif şoför sayısı
         group.enter()
+        print("👨‍💼 Aktif şoför sayısı sorgusu başlatılıyor...")
         fetchActiveDriverCount(for: companyId) { [weak self] count in
             DispatchQueue.main.async {
-                print("👨‍💼 Aktif şoför sayısı: \(count)")
+                print("👨‍💼 Aktif şoför sayısı sonucu: \(count)")
                 self?.activeDrivers = count
                 group.leave()
             }
@@ -43,9 +45,10 @@ class StatisticsService: ObservableObject {
         
         // Bugünkü işler
         group.enter()
+        print("📅 Bugünkü işler sorgusu başlatılıyor...")
         fetchTodaysTripCount(for: companyId) { [weak self] count in
             DispatchQueue.main.async {
-                print("📅 Bugünkü işler: \(count)")
+                print("📅 Bugünkü işler sonucu: \(count)")
                 self?.todaysTrips = count
                 group.leave()
             }
@@ -53,9 +56,10 @@ class StatisticsService: ObservableObject {
         
         // Tamamlanan işler
         group.enter()
+        print("✅ Tamamlanan işler sorgusu başlatılıyor...")
         fetchCompletedTripCount(for: companyId) { [weak self] count in
             DispatchQueue.main.async {
-                print("✅ Tamamlanan işler: \(count)")
+                print("✅ Tamamlanan işler sonucu: \(count)")
                 self?.completedTrips = count
                 group.leave()
             }
@@ -87,28 +91,32 @@ class StatisticsService: ObservableObject {
     }
     
     private func fetchActiveDriverCount(for companyId: String, completion: @escaping (Int) -> Void) {
+        print("👨‍💼 Aktif şoför sorgusu - Company ID: \(companyId)")
         db.collection("drivers")
             .whereField("companyId", isEqualTo: companyId)
             .whereField("isActive", isEqualTo: true)
             .getDocuments { snapshot, error in
                 if let error = error {
-                    print("Error fetching active drivers: \(error)")
+                    print("❌ Aktif şoför yüklenirken hata: \(error.localizedDescription)")
                     completion(0)
                     return
                 }
                 
                 let count = snapshot?.documents.count ?? 0
+                print("👨‍💼 Aktif şoför sayısı başarıyla yüklendi: \(count)")
                 completion(count)
             }
     }
     
     private func fetchTodaysTripCount(for companyId: String, completion: @escaping (Int) -> Void) {
-        // Index gerektirmeyen yaklaşım: Tüm trip'leri çek ve client-side filtrele
+        print("📅 Bugünkü işler sorgusu - Company ID: \(companyId)")
+        // Index gerektirmeyen basit sorgu
         db.collection("trips")
             .whereField("companyId", isEqualTo: companyId)
+            .limit(to: 50) // Maksimum 50 trip
             .getDocuments { snapshot, error in
                 if let error = error {
-                    print("Error fetching trips: \(error)")
+                    print("❌ Bugünkü işler yüklenirken hata: \(error.localizedDescription)")
                     completion(0)
                     return
                 }
@@ -117,33 +125,49 @@ class StatisticsService: ObservableObject {
                 let today = calendar.startOfDay(for: Date())
                 let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
                 
-                let todaysTrips = snapshot?.documents.compactMap { document in
-                    try? document.data(as: Trip.self)
-                }.filter { trip in
-                    trip.pickupTime >= today && trip.pickupTime < tomorrow
-                }.count ?? 0
+                print("📅 Bugünkü tarih aralığı: \(today) - \(tomorrow)")
                 
+                // Client-side filtering
+                let allTrips = snapshot?.documents.compactMap { document in
+                    try? document.data(as: Trip.self)
+                } ?? []
+                
+                print("📅 Toplam trip sayısı: \(allTrips.count)")
+                
+                let todaysTrips = allTrips.filter { trip in
+                    trip.pickupTime >= today && trip.pickupTime < tomorrow
+                }.count
+                
+                print("📅 Bugünkü işler sayısı: \(todaysTrips)")
                 completion(todaysTrips)
             }
     }
     
     private func fetchCompletedTripCount(for companyId: String, completion: @escaping (Int) -> Void) {
-        // Index gerektirmeyen yaklaşım: Tüm trip'leri çek ve client-side filtrele
+        print("✅ Tamamlanan işler sorgusu - Company ID: \(companyId)")
+        // Index gerektirmeyen basit sorgu
         db.collection("trips")
             .whereField("companyId", isEqualTo: companyId)
+            .limit(to: 50) // Maksimum 50 trip
             .getDocuments { snapshot, error in
                 if let error = error {
-                    print("Error fetching trips: \(error)")
+                    print("❌ Tamamlanan işler yüklenirken hata: \(error.localizedDescription)")
                     completion(0)
                     return
                 }
                 
-                let completedTrips = snapshot?.documents.compactMap { document in
+                // Client-side filtering
+                let allTrips = snapshot?.documents.compactMap { document in
                     try? document.data(as: Trip.self)
-                }.filter { trip in
-                    trip.status == .completed
-                }.count ?? 0
+                } ?? []
                 
+                print("✅ Toplam trip sayısı: \(allTrips.count)")
+                
+                let completedTrips = allTrips.filter { trip in
+                    trip.status == .completed
+                }.count
+                
+                print("✅ Tamamlanan işler sayısı: \(completedTrips)")
                 completion(completedTrips)
             }
     }
