@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import PDFKit
+import Combine
 
 class ExportService: ObservableObject {
     @Published var isExporting = false
