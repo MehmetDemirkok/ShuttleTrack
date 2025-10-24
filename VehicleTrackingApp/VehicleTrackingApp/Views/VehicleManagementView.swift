@@ -1,21 +1,161 @@
 import SwiftUI
 
 struct VehicleManagementView: View {
+    @StateObject private var viewModel = VehicleViewModel()
+    @StateObject private var appViewModel = AppViewModel()
+    @State private var showingAddVehicle = false
+    @State private var selectedVehicle: Vehicle?
+    @State private var showingDeleteAlert = false
+    @State private var vehicleToDelete: Vehicle?
+    
     var body: some View {
         NavigationView {
             VStack {
-                Text("Araç Yönetimi")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                    .padding()
+                if viewModel.isLoading {
+                    ProgressView("Araçlar yükleniyor...")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if viewModel.vehicles.isEmpty {
+                    VStack(spacing: 20) {
+                        Image(systemName: "car.fill")
+                            .font(.system(size: 60))
+                            .foregroundColor(.gray)
+                        
+                        Text("Henüz araç eklenmemiş")
+                            .font(.title2)
+                            .foregroundColor(.secondary)
+                        
+                        Text("İlk aracınızı eklemek için + butonuna tıklayın")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List {
+                        ForEach(viewModel.vehicles) { vehicle in
+                            VehicleRowView(
+                                vehicle: vehicle,
+                                onEdit: { selectedVehicle = vehicle },
+                                onDelete: { 
+                                    vehicleToDelete = vehicle
+                                    showingDeleteAlert = true
+                                },
+                                onToggleStatus: {
+                                    viewModel.toggleVehicleStatus(vehicle)
+                                }
+                            )
+                        }
+                    }
+                }
                 
-                Text("Araç listesi burada görünecek")
-                    .foregroundColor(.secondary)
-                
-                Spacer()
+                if !viewModel.errorMessage.isEmpty {
+                    Text(viewModel.errorMessage)
+                        .foregroundColor(.red)
+                        .font(.caption)
+                        .padding()
+                }
             }
             .navigationTitle("Araçlar")
+            .navigationBarItems(
+                trailing: Button(action: {
+                    showingAddVehicle = true
+                }) {
+                    Image(systemName: "plus")
+                }
+            )
+            .onAppear {
+                loadVehicles()
+            }
+            .sheet(isPresented: $showingAddVehicle) {
+                AddEditVehicleView(viewModel: viewModel, appViewModel: appViewModel)
+            }
+            .sheet(item: $selectedVehicle) { vehicle in
+                AddEditVehicleView(vehicle: vehicle, viewModel: viewModel, appViewModel: appViewModel)
+            }
+            .alert("Aracı Sil", isPresented: $showingDeleteAlert) {
+                Button("İptal", role: .cancel) { }
+                Button("Sil", role: .destructive) {
+                    if let vehicle = vehicleToDelete {
+                        viewModel.deleteVehicle(vehicle)
+                    }
+                }
+            } message: {
+                Text("Bu aracı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")
+            }
         }
+    }
+    
+    private func loadVehicles() {
+        guard let companyId = appViewModel.currentCompany?.id else { return }
+        viewModel.fetchVehicles(for: companyId)
+    }
+}
+
+struct VehicleRowView: View {
+    let vehicle: Vehicle
+    let onEdit: () -> Void
+    let onDelete: () -> Void
+    let onToggleStatus: () -> Void
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(vehicle.displayName)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    Text("\(vehicle.year) • \(vehicle.capacity) kişi • \(vehicle.color)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    HStack {
+                        Circle()
+                            .fill(Color(vehicle.statusColor))
+                            .frame(width: 8, height: 8)
+                        
+                        Text(vehicle.statusText)
+                            .font(.caption)
+                            .foregroundColor(Color(vehicle.statusColor))
+                    }
+                    
+                    if let location = vehicle.currentLocation {
+                        Text("📍 Konum mevcut")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                    }
+                }
+            }
+            
+            HStack {
+                Button("Düzenle") {
+                    onEdit()
+                }
+                .font(.caption)
+                .foregroundColor(.blue)
+                
+                Spacer()
+                
+                Button(vehicle.isActive ? "Pasifleştir" : "Aktifleştir") {
+                    onToggleStatus()
+                }
+                .font(.caption)
+                .foregroundColor(vehicle.isActive ? .orange : .green)
+                
+                Spacer()
+                
+                Button("Sil") {
+                    onDelete()
+                }
+                .font(.caption)
+                .foregroundColor(.red)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 
