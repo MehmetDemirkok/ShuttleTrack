@@ -108,10 +108,6 @@ struct DriverRowView: View {
                     Text(driver.phoneNumber)
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    
-                    Text("Ehliyet: \(driver.licenseNumber)")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
                 }
                 
                 Spacer()
@@ -127,15 +123,6 @@ struct DriverRowView: View {
                             .foregroundColor(Color(driver.statusColor))
                     }
                     
-                    HStack {
-                        Circle()
-                            .fill(Color(driver.licenseStatusColor))
-                            .frame(width: 6, height: 6)
-                        
-                        Text(driver.licenseStatusText)
-                            .font(.caption2)
-                            .foregroundColor(Color(driver.licenseStatusColor))
-                    }
                     
                     if driver.assignedVehicleId != nil {
                         Text("🚗 Araç atanmış")

@@ -5,9 +5,6 @@ struct Driver: Identifiable, Codable {
     var firstName: String
     var lastName: String
     var phoneNumber: String
-    var email: String
-    var licenseNumber: String
-    var licenseExpiryDate: Date
     var isActive: Bool
     var assignedVehicleId: String?
     var companyId: String
@@ -18,18 +15,12 @@ struct Driver: Identifiable, Codable {
          firstName: String,
          lastName: String,
          phoneNumber: String,
-         email: String,
-         licenseNumber: String,
-         licenseExpiryDate: Date,
          isActive: Bool = true,
          companyId: String) {
         self.id = id
         self.firstName = firstName
         self.lastName = lastName
         self.phoneNumber = phoneNumber
-        self.email = email
-        self.licenseNumber = licenseNumber
-        self.licenseExpiryDate = licenseExpiryDate
         self.isActive = isActive
         self.assignedVehicleId = nil
         self.companyId = companyId
@@ -49,33 +40,4 @@ struct Driver: Identifiable, Codable {
         return isActive ? "green" : "red"
     }
     
-    var isLicenseExpired: Bool {
-        return licenseExpiryDate < Date()
-    }
-    
-    var licenseStatusText: String {
-        if isLicenseExpired {
-            return "Süresi Dolmuş"
-        } else {
-            let daysUntilExpiry = Calendar.current.dateComponents([.day], from: Date(), to: licenseExpiryDate).day ?? 0
-            if daysUntilExpiry <= 30 {
-                return "\(daysUntilExpiry) gün kaldı"
-            } else {
-                return "Geçerli"
-            }
-        }
-    }
-    
-    var licenseStatusColor: String {
-        if isLicenseExpired {
-            return "red"
-        } else {
-            let daysUntilExpiry = Calendar.current.dateComponents([.day], from: Date(), to: licenseExpiryDate).day ?? 0
-            if daysUntilExpiry <= 30 {
-                return "orange"
-            } else {
-                return "green"
-            }
-        }
-    }
 }

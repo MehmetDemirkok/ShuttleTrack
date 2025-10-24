@@ -8,9 +8,6 @@ struct AddEditDriverView: View {
     @State private var firstName = ""
     @State private var lastName = ""
     @State private var phoneNumber = ""
-    @State private var email = ""
-    @State private var licenseNumber = ""
-    @State private var licenseExpiryDate = Date()
     @State private var isActive = true
     @State private var isLoading = false
     @State private var errorMessage = ""
@@ -28,9 +25,6 @@ struct AddEditDriverView: View {
             _firstName = State(initialValue: driver.firstName)
             _lastName = State(initialValue: driver.lastName)
             _phoneNumber = State(initialValue: driver.phoneNumber)
-            _email = State(initialValue: driver.email)
-            _licenseNumber = State(initialValue: driver.licenseNumber)
-            _licenseExpiryDate = State(initialValue: driver.licenseExpiryDate)
             _isActive = State(initialValue: driver.isActive)
         }
     }
@@ -48,20 +42,6 @@ struct AddEditDriverView: View {
                     TextField("Telefon", text: $phoneNumber)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .keyboardType(.phonePad)
-                    
-                    TextField("E-posta", text: $email)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .keyboardType(.emailAddress)
-                        .autocapitalization(.none)
-                }
-                
-                Section(header: Text("Ehliyet Bilgileri")) {
-                    TextField("Ehliyet Numarası", text: $licenseNumber)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                    
-                    DatePicker("Ehliyet Geçerlilik Tarihi", 
-                              selection: $licenseExpiryDate, 
-                              displayedComponents: .date)
                 }
                 
                 Section(header: Text("Durum")) {
@@ -105,9 +85,6 @@ struct AddEditDriverView: View {
             firstName: firstName,
             lastName: lastName,
             phoneNumber: phoneNumber,
-            email: email,
-            licenseNumber: licenseNumber,
-            licenseExpiryDate: licenseExpiryDate,
             isActive: isActive,
             companyId: companyId
         )
