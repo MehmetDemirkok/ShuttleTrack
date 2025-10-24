@@ -46,7 +46,12 @@ struct VehicleManagementView: View {
                         ForEach(viewModel.vehicles) { vehicle in
                             VehicleRowView(
                                 vehicle: vehicle,
-                                onEdit: { selectedVehicle = vehicle },
+                                onEdit: { 
+                                    print("🔧 VehicleManagementView: Düzenle butonuna tıklandı - Vehicle: \(vehicle.displayName)")
+                                    print("🔧 selectedVehicle öncesi: \(selectedVehicle?.displayName ?? "nil")")
+                                    selectedVehicle = vehicle
+                                    print("🔧 selectedVehicle sonrası: \(selectedVehicle?.displayName ?? "nil")")
+                                },
                                 onDelete: { 
                                     vehicleToDelete = vehicle
                                     showingDeleteAlert = true
@@ -80,11 +85,25 @@ struct VehicleManagementView: View {
             .onAppear {
                 loadVehicles()
             }
-            .sheet(isPresented: $showingAddVehicle) {
-                AddEditVehicleView(viewModel: viewModel, appViewModel: appViewModel)
-            }
-            .sheet(item: $selectedVehicle) { vehicle in
-                AddEditVehicleView(vehicle: vehicle, viewModel: viewModel, appViewModel: appViewModel)
+            .sheet(isPresented: Binding<Bool>(
+                get: { 
+                    let shouldShow = showingAddVehicle || selectedVehicle != nil
+                    print("🔧 Vehicle Sheet binding get: showingAddVehicle=\(showingAddVehicle), selectedVehicle=\(selectedVehicle?.displayName ?? "nil"), shouldShow=\(shouldShow)")
+                    return shouldShow
+                },
+                set: { 
+                    print("🔧 Vehicle Sheet binding set: \($0)")
+                    if !$0 {
+                        showingAddVehicle = false
+                        selectedVehicle = nil
+                    }
+                }
+            )) {
+                if let vehicle = selectedVehicle {
+                    AddEditVehicleView(vehicle: vehicle, viewModel: viewModel, appViewModel: appViewModel)
+                } else {
+                    AddEditVehicleView(viewModel: viewModel, appViewModel: appViewModel)
+                }
             }
             .alert("Aracı Sil", isPresented: $showingDeleteAlert) {
                 Button("İptal", role: .cancel) { }

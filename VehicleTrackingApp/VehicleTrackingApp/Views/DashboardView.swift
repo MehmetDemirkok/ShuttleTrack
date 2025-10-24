@@ -60,10 +60,24 @@ struct DashboardView: View {
                     
                     // Hızlı İstatistikler
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("Hızlı İstatistikler")
-                            .font(.headline)
-                            .fontWeight(.semibold)
-                            .padding(.horizontal)
+                        HStack {
+                            Text("Hızlı İstatistikler")
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                            
+                            Spacer()
+                            
+                            Button(action: {
+                                if let companyId = appViewModel.currentCompany?.id {
+                                    statisticsService.refreshStatistics(for: companyId)
+                                }
+                            }) {
+                                Image(systemName: "arrow.clockwise")
+                                    .foregroundColor(.blue)
+                            }
+                            .disabled(statisticsService.isLoading)
+                        }
+                        .padding(.horizontal)
                         
                         LazyVGrid(columns: [
                             GridItem(.flexible()),
@@ -76,7 +90,7 @@ struct DashboardView: View {
                                 color: .blue
                             )
                             StatCard(
-                                title: "Aktif Şoför", 
+                                title: "Aktif Sürücü", 
                                 value: statisticsService.isLoading ? "..." : "\(statisticsService.activeDrivers)", 
                                 icon: "person.fill", 
                                 color: .green
@@ -116,7 +130,7 @@ struct DashboardView: View {
                             }
                             
                             QuickActionButton(
-                                title: "Şoför Ekle",
+                                title: "Sürücü Ekle",
                                 icon: "person.badge.plus",
                                 color: .green
                             ) {
@@ -156,7 +170,7 @@ struct DashboardView: View {
             DriverManagementView()
                 .tabItem {
                     Image(systemName: "person.fill")
-                    Text("Şoförler")
+                    Text("Sürücüler")
                 }
                 .tag(2)
             

@@ -5,8 +5,12 @@ struct TripAssignmentView: View {
     @StateObject private var vehicleViewModel = VehicleViewModel()
     @StateObject private var driverViewModel = DriverViewModel()
     @StateObject private var appViewModel = AppViewModel()
+    @StateObject private var exportService = ExportService()
     @State private var showingAddTrip = false
     @State private var selectedStatus: Trip.TripStatus? = nil
+    @State private var showingExportOptions = false
+    @State private var showingShareSheet = false
+    @State private var shareURL: URL?
     
     var filteredTrips: [Trip] {
         if let status = selectedStatus {
@@ -75,6 +79,12 @@ struct TripAssignmentView: View {
             }
             .navigationTitle("İş Yönetimi")
             .navigationBarItems(
+                leading: Button(action: {
+                    showingExportOptions = true
+                }) {
+                    Image(systemName: "square.and.arrow.up")
+                }
+                .disabled(filteredTrips.isEmpty || exportService.isExporting),
                 trailing: Button(action: {
                     showingAddTrip = true
                 }) {
@@ -84,6 +94,30 @@ struct TripAssignmentView: View {
             .sheet(isPresented: $showingAddTrip) {
                 AddTripView()
             }
+            .actionSheet(isPresented: $showingExportOptions) {
+                ActionSheet(
+                    title: Text("Dışa Aktar"),
+                    message: Text("Hangi formatta dışa aktarmak istiyorsunuz?"),
+                    buttons: [
+                        .default(Text("Excel (CSV)")) {
+                            Task {
+                                await exportToExcel()
+                            }
+                        },
+                        .default(Text("PDF")) {
+                            Task {
+                                await exportToPDF()
+                            }
+                        },
+                        .cancel()
+                    ]
+                )
+            }
+            .sheet(isPresented: $showingShareSheet, content: {
+                if let url = shareURL {
+                    ShareSheet(activityItems: [url])
+                }
+            })
             .onAppear {
                 loadData()
             }
@@ -107,6 +141,20 @@ struct TripAssignmentView: View {
         case .inProgress: return "Devam Ediyor"
         case .completed: return "Tamamlandı"
         case .cancelled: return "İptal"
+        }
+    }
+    
+    private func exportToExcel() async {
+        if let url = await exportService.exportTripsToExcel(filteredTrips) {
+            shareURL = url
+            showingShareSheet = true
+        }
+    }
+    
+    private func exportToPDF() async {
+        if let url = await exportService.exportTripsToPDF(filteredTrips) {
+            shareURL = url
+            showingShareSheet = true
         }
     }
 }
@@ -356,6 +404,18 @@ struct AddTripView: View {
             presentationMode.wrappedValue.dismiss()
         }
     }
+}
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    let applicationActivities: [UIActivity]? = nil
+    
+    func makeUIViewController(context: UIViewControllerRepresentableContext<ShareSheet>) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
+        return controller
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: UIViewControllerRepresentableContext<ShareSheet>) {}
 }
 
 struct TripAssignmentView_Previews: PreviewProvider {

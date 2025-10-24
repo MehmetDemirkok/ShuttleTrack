@@ -39,7 +39,7 @@ class AppViewModel: ObservableObject {
         }
         
         // Zaten yükleniyorsa tekrar yükleme
-        if lastCompanyLoadTime != nil && Date().timeIntervalSince(lastCompanyLoadTime!) < 5 {
+        if lastCompanyLoadTime != nil && Date().timeIntervalSince(lastCompanyLoadTime!) < 10 {
             print("⏳ Company data already loading, skipping...")
             return
         }

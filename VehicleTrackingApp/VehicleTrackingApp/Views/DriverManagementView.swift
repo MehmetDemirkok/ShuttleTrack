@@ -12,7 +12,7 @@ struct DriverManagementView: View {
         NavigationView {
             VStack {
                 if viewModel.isLoading {
-                    ProgressView("Şoförler yükleniyor...")
+                    ProgressView("Sürücüler yükleniyor...")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if viewModel.drivers.isEmpty {
                     VStack(spacing: 20) {
@@ -20,11 +20,11 @@ struct DriverManagementView: View {
                             .font(.system(size: 60))
                             .foregroundColor(.gray)
                         
-                        Text("Henüz şoför eklenmemiş")
+                        Text("Henüz sürücü eklenmemiş")
                             .font(.title2)
                             .foregroundColor(.secondary)
                         
-                        Text("İlk şoförünüzü eklemek için + butonuna tıklayın")
+                        Text("İlk sürücünüzü eklemek için + butonuna tıklayın")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
@@ -35,7 +35,12 @@ struct DriverManagementView: View {
                         ForEach(viewModel.drivers) { driver in
                             DriverRowView(
                                 driver: driver,
-                                onEdit: { selectedDriver = driver },
+                                onEdit: { 
+                                    print("🔧 DriverManagementView: Düzenle butonuna tıklandı - Driver: \(driver.fullName)")
+                                    print("🔧 selectedDriver öncesi: \(selectedDriver?.fullName ?? "nil")")
+                                    selectedDriver = driver
+                                    print("🔧 selectedDriver sonrası: \(selectedDriver?.fullName ?? "nil")")
+                                },
                                 onDelete: { 
                                     driverToDelete = driver
                                     showingDeleteAlert = true
@@ -55,7 +60,7 @@ struct DriverManagementView: View {
                         .padding()
                 }
             }
-            .navigationTitle("Şoförler")
+            .navigationTitle("Sürücüler")
             .navigationBarItems(
                 trailing: Button(action: {
                     showingAddDriver = true
@@ -66,13 +71,27 @@ struct DriverManagementView: View {
             .onAppear {
                 loadDrivers()
             }
-            .sheet(isPresented: $showingAddDriver) {
-                AddEditDriverView(viewModel: viewModel, appViewModel: appViewModel)
+            .sheet(isPresented: Binding<Bool>(
+                get: { 
+                    let shouldShow = showingAddDriver || selectedDriver != nil
+                    print("🔧 Driver Sheet binding get: showingAddDriver=\(showingAddDriver), selectedDriver=\(selectedDriver?.fullName ?? "nil"), shouldShow=\(shouldShow)")
+                    return shouldShow
+                },
+                set: { 
+                    print("🔧 Driver Sheet binding set: \($0)")
+                    if !$0 {
+                        showingAddDriver = false
+                        selectedDriver = nil
+                    }
+                }
+            )) {
+                if let driver = selectedDriver {
+                    AddEditDriverView(driver: driver, viewModel: viewModel, appViewModel: appViewModel)
+                } else {
+                    AddEditDriverView(viewModel: viewModel, appViewModel: appViewModel)
+                }
             }
-            .sheet(item: $selectedDriver) { driver in
-                AddEditDriverView(driver: driver, viewModel: viewModel, appViewModel: appViewModel)
-            }
-            .alert("Şoförü Sil", isPresented: $showingDeleteAlert) {
+            .alert("Sürücüyü Sil", isPresented: $showingDeleteAlert) {
                 Button("İptal", role: .cancel) { }
                 Button("Sil", role: .destructive) {
                     if let driver = driverToDelete {
@@ -80,7 +99,7 @@ struct DriverManagementView: View {
                     }
                 }
             } message: {
-                Text("Bu şoförü silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")
+                Text("Bu sürücüyü silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")
             }
         }
     }
@@ -133,9 +152,13 @@ struct DriverRowView: View {
             }
             
             HStack {
-                Button("Düzenle") {
-                    print("🔧 DriverRowView: Düzenle butonuna tıklandı - Driver: \(driver.fullName)")
+                Button(action: {
+                    print("🔧 DriverRowView: DÜZENLE butonuna tıklandı - Driver: \(driver.fullName)")
+                    print("🔧 DriverRowView: onEdit() çağrılıyor")
                     onEdit()
+                    print("🔧 DriverRowView: onEdit() tamamlandı")
+                }) {
+                    Text("Düzenle")
                 }
                 .font(.caption)
                 .foregroundColor(.blue)
@@ -150,9 +173,13 @@ struct DriverRowView: View {
                 
                 Spacer()
                 
-                Button("Sil") {
-                    print("🗑️ DriverRowView: Sil butonuna tıklandı - Driver: \(driver.fullName)")
+                Button(action: {
+                    print("🗑️ DriverRowView: SİL butonuna tıklandı - Driver: \(driver.fullName)")
+                    print("🗑️ DriverRowView: onDelete() çağrılıyor")
                     onDelete()
+                    print("🗑️ DriverRowView: onDelete() tamamlandı")
+                }) {
+                    Text("Sil")
                 }
                 .font(.caption)
                 .foregroundColor(.red)

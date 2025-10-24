@@ -3,11 +3,15 @@ import SwiftUI
 struct TripAssignmentView: View {
     @StateObject private var viewModel = TripViewModel()
     @StateObject private var appViewModel = AppViewModel()
+    @StateObject private var exportService = ExportService()
     @State private var showingAddTrip = false
     @State private var selectedTrip: Trip?
     @State private var showingDeleteAlert = false
     @State private var tripToDelete: Trip?
     @State private var selectedStatus: TripStatus = .pending
+    @State private var showingExportOptions = false
+    @State private var exportedFileURL: URL?
+    @State private var showingShareSheet = false
     
     var body: some View {
         NavigationView {
@@ -46,7 +50,12 @@ struct TripAssignmentView: View {
                         ForEach(filteredTrips) { trip in
                             TripRowView(
                                 trip: trip,
-                                onEdit: { selectedTrip = trip },
+                                onEdit: { 
+                                    print("🔧 TripAssignmentView: Düzenle butonuna tıklandı - Trip: \(trip.title)")
+                                    print("🔧 selectedTrip öncesi: \(selectedTrip?.title ?? "nil")")
+                                    selectedTrip = trip
+                                    print("🔧 selectedTrip sonrası: \(selectedTrip?.title ?? "nil")")
+                                },
                                 onDelete: { 
                                     tripToDelete = trip
                                     showingDeleteAlert = true
@@ -68,6 +77,11 @@ struct TripAssignmentView: View {
             }
             .navigationTitle("İşler")
             .navigationBarItems(
+                leading: Button(action: {
+                    showingExportOptions = true
+                }) {
+                    Image(systemName: "square.and.arrow.up")
+                },
                 trailing: Button(action: {
                     showingAddTrip = true
                 }) {
@@ -77,11 +91,25 @@ struct TripAssignmentView: View {
             .onAppear {
                 loadTrips()
             }
-            .sheet(isPresented: $showingAddTrip) {
-                AddEditTripView(viewModel: viewModel, appViewModel: appViewModel)
-            }
-            .sheet(item: $selectedTrip) { trip in
-                AddEditTripView(trip: trip, viewModel: viewModel, appViewModel: appViewModel)
+            .sheet(isPresented: Binding<Bool>(
+                get: { 
+                    let shouldShow = showingAddTrip || selectedTrip != nil
+                    print("🔧 Sheet binding get: showingAddTrip=\(showingAddTrip), selectedTrip=\(selectedTrip?.title ?? "nil"), shouldShow=\(shouldShow)")
+                    return shouldShow
+                },
+                set: { 
+                    print("🔧 Sheet binding set: \($0)")
+                    if !$0 {
+                        showingAddTrip = false
+                        selectedTrip = nil
+                    }
+                }
+            )) {
+                if let trip = selectedTrip {
+                    AddEditTripView(trip: trip, viewModel: viewModel, appViewModel: appViewModel)
+                } else {
+                    AddEditTripView(viewModel: viewModel, appViewModel: appViewModel)
+                }
             }
             .alert("İşi Sil", isPresented: $showingDeleteAlert) {
                 Button("İptal", role: .cancel) { }
@@ -92,6 +120,22 @@ struct TripAssignmentView: View {
                 }
             } message: {
                 Text("Bu işi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")
+            }
+            .sheet(isPresented: $showingExportOptions) {
+                ExportOptionsView(
+                    trips: filteredTrips,
+                    exportService: exportService,
+                    onExport: { fileURL in
+                        exportedFileURL = fileURL
+                        showingExportOptions = false
+                        showingShareSheet = true
+                    }
+                )
+            }
+            .sheet(isPresented: $showingShareSheet) {
+                if let fileURL = exportedFileURL {
+                    ShareSheet(activityItems: [fileURL])
+                }
             }
         }
     }
@@ -179,9 +223,13 @@ struct TripRowView: View {
             }
             
             HStack(spacing: 12) {
-                Button("Düzenle") {
-                    print("🔧 TripRowView: Düzenle butonuna tıklandı - Trip: \(trip.title)")
+                Button(action: {
+                    print("🔧 TripRowView: DÜZENLE butonuna tıklandı - Trip: \(trip.title)")
+                    print("🔧 TripRowView: onEdit() çağrılıyor")
                     onEdit()
+                    print("🔧 TripRowView: onEdit() tamamlandı")
+                }) {
+                    Text("Düzenle")
                 }
                 .font(.caption)
                 .foregroundColor(.blue)
@@ -208,9 +256,13 @@ struct TripRowView: View {
                     .cornerRadius(6)
                 }
                 
-                Button("Sil") {
-                    print("🗑️ TripRowView: Sil butonuna tıklandı - Trip: \(trip.title)")
+                Button(action: {
+                    print("🗑️ TripRowView: SİL butonuna tıklandı - Trip: \(trip.title)")
+                    print("🗑️ TripRowView: onDelete() çağrılıyor")
                     onDelete()
+                    print("🗑️ TripRowView: onDelete() tamamlandı")
+                }) {
+                    Text("Sil")
                 }
                 .font(.caption)
                 .foregroundColor(.red)
@@ -222,6 +274,127 @@ struct TripRowView: View {
         }
         .padding(.vertical, 4)
     }
+}
+
+struct ExportOptionsView: View {
+    let trips: [Trip]
+    let exportService: ExportService
+    let onExport: (URL?) -> Void
+    
+    @State private var selectedFormat: ExportFormat = .excel
+    @Environment(\.presentationMode) var presentationMode
+    
+    enum ExportFormat: String, CaseIterable {
+        case excel = "Excel"
+        case pdf = "PDF"
+        
+        var displayName: String {
+            switch self {
+            case .excel: return "Excel (.csv)"
+            case .pdf: return "PDF"
+            }
+        }
+    }
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                Text("Export Seçenekleri")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .padding(.top)
+                
+                Text("\(trips.count) iş export edilecek")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                VStack(alignment: .leading, spacing: 16) {
+                    ForEach(ExportFormat.allCases, id: \.self) { format in
+                        Button(action: {
+                            selectedFormat = format
+                        }) {
+                            HStack {
+                                Image(systemName: selectedFormat == format ? "checkmark.circle.fill" : "circle")
+                                    .foregroundColor(selectedFormat == format ? .blue : .gray)
+                                
+                                Text(format.displayName)
+                                    .foregroundColor(.primary)
+                                
+                                Spacer()
+                            }
+                            .padding()
+                            .background(selectedFormat == format ? Color.blue.opacity(0.1) : Color.gray.opacity(0.1))
+                            .cornerRadius(8)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                
+                if exportService.isExporting {
+                    VStack(spacing: 12) {
+                        ProgressView(value: exportService.exportProgress)
+                            .progressViewStyle(LinearProgressViewStyle())
+                        
+                        Text(exportService.exportMessage)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                }
+                
+                Spacer()
+                
+                HStack(spacing: 16) {
+                    Button("İptal") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(8)
+                    
+                    Button("Export Et") {
+                        exportTrips()
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(exportService.isExporting ? Color.gray : Color.blue)
+                    .cornerRadius(8)
+                    .disabled(exportService.isExporting)
+                }
+                .padding(.horizontal)
+                .padding(.bottom)
+            }
+            .navigationBarHidden(true)
+        }
+    }
+    
+    private func exportTrips() {
+        let fileURL: URL?
+        
+        switch selectedFormat {
+        case .excel:
+            fileURL = exportService.exportToExcel(trips: trips)
+        case .pdf:
+            fileURL = exportService.exportToPDF(trips: trips)
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            onExport(fileURL)
+        }
+    }
+}
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 struct TripAssignmentView_Previews: PreviewProvider {

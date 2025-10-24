@@ -12,6 +12,7 @@ class StatisticsService: ObservableObject {
     
     private let db = Firestore.firestore()
     private var cancellables = Set<AnyCancellable>()
+    private var listeners: [ListenerRegistration] = []
     
     func fetchStatistics(for companyId: String) {
         print("📊 İstatistikler yükleniyor - Company ID: \(companyId)")
@@ -32,12 +33,12 @@ class StatisticsService: ObservableObject {
             }
         }
         
-        // Aktif şoför sayısı
+        // Aktif sürücü sayısı
         group.enter()
-        print("👨‍💼 Aktif şoför sayısı sorgusu başlatılıyor...")
+        print("👨‍💼 Aktif sürücü sayısı sorgusu başlatılıyor...")
         fetchActiveDriverCount(for: companyId) { [weak self] count in
             DispatchQueue.main.async {
-                print("👨‍💼 Aktif şoför sayısı sonucu: \(count)")
+                print("👨‍💼 Aktif sürücü sayısı sonucu: \(count)")
                 self?.activeDrivers = count
                 group.leave()
             }
@@ -66,7 +67,7 @@ class StatisticsService: ObservableObject {
         }
         
         group.notify(queue: .main) { [weak self] in
-            print("📊 İstatistikler yüklendi - Araç: \(self?.totalVehicles ?? 0), Şoför: \(self?.activeDrivers ?? 0), Bugün: \(self?.todaysTrips ?? 0), Tamamlanan: \(self?.completedTrips ?? 0)")
+            print("📊 İstatistikler yüklendi - Araç: \(self?.totalVehicles ?? 0), Sürücü: \(self?.activeDrivers ?? 0), Bugün: \(self?.todaysTrips ?? 0), Tamamlanan: \(self?.completedTrips ?? 0)")
             self?.isLoading = false
         }
     }
@@ -91,19 +92,19 @@ class StatisticsService: ObservableObject {
     }
     
     private func fetchActiveDriverCount(for companyId: String, completion: @escaping (Int) -> Void) {
-        print("👨‍💼 Aktif şoför sorgusu - Company ID: \(companyId)")
+        print("👨‍💼 Aktif sürücü sorgusu - Company ID: \(companyId)")
         db.collection("drivers")
             .whereField("companyId", isEqualTo: companyId)
             .whereField("isActive", isEqualTo: true)
             .getDocuments { snapshot, error in
                 if let error = error {
-                    print("❌ Aktif şoför yüklenirken hata: \(error.localizedDescription)")
+                    print("❌ Aktif sürücü yüklenirken hata: \(error.localizedDescription)")
                     completion(0)
                     return
                 }
                 
                 let count = snapshot?.documents.count ?? 0
-                print("👨‍💼 Aktif şoför sayısı başarıyla yüklendi: \(count)")
+                print("👨‍💼 Aktif sürücü sayısı başarıyla yüklendi: \(count)")
                 completion(count)
             }
     }
@@ -174,40 +175,54 @@ class StatisticsService: ObservableObject {
     
     // Real-time istatistik güncellemeleri için listener'lar
     func startRealTimeUpdates(for companyId: String) {
+        print("🔄 Real-time istatistik güncellemeleri başlatılıyor - Company ID: \(companyId)")
+        
+        // Önceki listener'ları temizle
+        stopRealTimeUpdates()
+        
         // Araç sayısı listener
-        db.collection("vehicles")
+        let vehicleListener = db.collection("vehicles")
             .whereField("companyId", isEqualTo: companyId)
             .addSnapshotListener { [weak self] snapshot, error in
                 DispatchQueue.main.async {
                     if let error = error {
-                        print("Error listening to vehicles: \(error)")
+                        print("❌ Error listening to vehicles: \(error)")
+                        self?.errorMessage = "Araç verileri güncellenemedi: \(error.localizedDescription)"
                         return
                     }
-                    self?.totalVehicles = snapshot?.documents.count ?? 0
+                    let count = snapshot?.documents.count ?? 0
+                    print("🚗 Real-time araç sayısı güncellendi: \(count)")
+                    self?.totalVehicles = count
                 }
             }
+        listeners.append(vehicleListener)
         
-        // Aktif şoför sayısı listener
-        db.collection("drivers")
+        // Aktif sürücü sayısı listener
+        let driverListener = db.collection("drivers")
             .whereField("companyId", isEqualTo: companyId)
             .whereField("isActive", isEqualTo: true)
             .addSnapshotListener { [weak self] snapshot, error in
                 DispatchQueue.main.async {
                     if let error = error {
-                        print("Error listening to active drivers: \(error)")
+                        print("❌ Error listening to active drivers: \(error)")
+                        self?.errorMessage = "Sürücü verileri güncellenemedi: \(error.localizedDescription)"
                         return
                     }
-                    self?.activeDrivers = snapshot?.documents.count ?? 0
+                    let count = snapshot?.documents.count ?? 0
+                    print("👨‍💼 Real-time aktif sürücü sayısı güncellendi: \(count)")
+                    self?.activeDrivers = count
                 }
             }
+        listeners.append(driverListener)
         
-        // Bugünkü işler listener - Index gerektirmeyen yaklaşım
-        db.collection("trips")
+        // Bugünkü işler listener - Company ID filtresi eklendi
+        let todaysTripsListener = db.collection("trips")
             .whereField("companyId", isEqualTo: companyId)
             .addSnapshotListener { [weak self] snapshot, error in
                 DispatchQueue.main.async {
                     if let error = error {
-                        print("Error listening to trips: \(error)")
+                        print("❌ Error listening to today's trips: \(error)")
+                        self?.errorMessage = "Bugünkü işler güncellenemedi: \(error.localizedDescription)"
                         return
                     }
                     
@@ -221,17 +236,20 @@ class StatisticsService: ObservableObject {
                         trip.pickupTime >= today && trip.pickupTime < tomorrow
                     }.count ?? 0
                     
+                    print("📅 Real-time bugünkü işler güncellendi: \(todaysTrips)")
                     self?.todaysTrips = todaysTrips
                 }
             }
+        listeners.append(todaysTripsListener)
         
-        // Tamamlanan işler listener - Index gerektirmeyen yaklaşım
-        db.collection("trips")
+        // Tamamlanan işler listener
+        let completedTripsListener = db.collection("trips")
             .whereField("companyId", isEqualTo: companyId)
             .addSnapshotListener { [weak self] snapshot, error in
                 DispatchQueue.main.async {
                     if let error = error {
-                        print("Error listening to trips: \(error)")
+                        print("❌ Error listening to completed trips: \(error)")
+                        self?.errorMessage = "Tamamlanan işler güncellenemedi: \(error.localizedDescription)"
                         return
                     }
                     
@@ -241,14 +259,24 @@ class StatisticsService: ObservableObject {
                         trip.status == .completed
                     }.count ?? 0
                     
+                    print("✅ Real-time tamamlanan işler güncellendi: \(completedTrips)")
                     self?.completedTrips = completedTrips
                 }
             }
+        listeners.append(completedTripsListener)
+        
+        print("✅ Real-time listener'lar başlatıldı - Toplam: \(listeners.count)")
     }
     
     func stopRealTimeUpdates() {
+        print("🛑 Real-time listener'lar durduruluyor...")
         // Listener'ları durdur
+        for listener in listeners {
+            listener.remove()
+        }
+        listeners.removeAll()
         cancellables.removeAll()
+        print("✅ Real-time listener'lar durduruldu")
     }
     
     // İstatistikleri manuel olarak yenile
@@ -260,5 +288,10 @@ class StatisticsService: ObservableObject {
     // Hata mesajını temizle
     func clearError() {
         errorMessage = ""
+    }
+    
+    // Deinitializer - Memory leak önleme
+    deinit {
+        stopRealTimeUpdates()
     }
 }
