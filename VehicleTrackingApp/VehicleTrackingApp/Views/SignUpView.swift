@@ -1,9 +1,11 @@
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
 
 struct SignUpView: View {
     @Environment(\.presentationMode) var presentationMode
     @State private var companyName = ""
+    @State private var displayName = ""
     @State private var email = ""
     @State private var password = ""
     @State private var confirmPassword = ""
@@ -21,6 +23,10 @@ struct SignUpView: View {
                 VStack(spacing: 15) {
                     TextField("Şirket Adı", text: $companyName)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
+                    
+                    TextField("Ad Soyad", text: $displayName)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .autocapitalization(.words)
                     
                     TextField("E-posta", text: $email)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
@@ -53,7 +59,7 @@ struct SignUpView: View {
                         .foregroundColor(.white)
                         .cornerRadius(10)
                     }
-                    .disabled(isLoading || companyName.isEmpty || email.isEmpty || password.isEmpty || password != confirmPassword)
+                    .disabled(isLoading || companyName.isEmpty || displayName.isEmpty || email.isEmpty || password.isEmpty || password != confirmPassword)
                 }
                 .padding(.horizontal, 30)
                 
@@ -72,14 +78,64 @@ struct SignUpView: View {
         isLoading = true
         errorMessage = ""
         
-        Auth.auth().createUser(withEmail: email, password: password) { result, error in
+        Auth.auth().createUser(withEmail: email, password: password) { [self] result, error in
             DispatchQueue.main.async {
-                isLoading = false
                 if let error = error {
-                    errorMessage = error.localizedDescription
-                } else {
-                    // Company verilerini Firebase'e kaydet
-                    presentationMode.wrappedValue.dismiss()
+                    self.isLoading = false
+                    self.errorMessage = error.localizedDescription
+                } else if let user = result?.user {
+                    // Kullanıcı oluşturuldu, şimdi şirket ve profil verilerini kaydet
+                    self.saveCompanyAndProfileData(user: user)
+                }
+            }
+        }
+    }
+    
+    private func saveCompanyAndProfileData(user: User) {
+        let db = Firestore.firestore()
+        
+        // Şirket verilerini kaydet
+        let company = Company(
+            id: user.uid,
+            name: companyName,
+            email: email,
+            phone: "",
+            address: ""
+        )
+        
+        // Kullanıcı profilini oluştur
+        let userProfile = UserProfile(
+            userId: user.uid,
+            displayName: displayName,
+            email: email,
+            companyId: user.uid,
+            role: .admin
+        )
+        
+        // Firebase'e kaydet
+        Task {
+            do {
+                // Şirket verilerini kaydet
+                try await db.collection("companies").document(user.uid).setData(from: company)
+                
+                // Kullanıcı profilini kaydet
+                var profileData = userProfile
+                profileData.id = user.uid
+                try await db.collection("userProfiles").document(user.uid).setData(from: profileData)
+                
+                // Kullanıcı adını güncelle
+                let changeRequest = user.createProfileChangeRequest()
+                changeRequest.displayName = displayName
+                try await changeRequest.commitChanges()
+                
+                await MainActor.run {
+                    self.isLoading = false
+                    self.presentationMode.wrappedValue.dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    self.isLoading = false
+                    self.errorMessage = "Veriler kaydedilirken hata oluştu: \(error.localizedDescription)"
                 }
             }
         }

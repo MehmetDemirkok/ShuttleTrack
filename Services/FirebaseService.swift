@@ -128,4 +128,33 @@ class FirebaseService: ObservableObject {
             "lastUpdated": Date()
         ])
     }
+    
+    // MARK: - User Profile Management
+    func createUserProfile(_ profile: UserProfile) async throws {
+        var profileData = profile
+        profileData.id = profile.userId
+        try await db.collection("userProfiles").document(profile.userId).setData(from: profileData)
+    }
+    
+    func fetchUserProfile(userId: String) async throws -> UserProfile? {
+        let document = try await db.collection("userProfiles").document(userId).getDocument()
+        return try document.data(as: UserProfile.self)
+    }
+    
+    func updateUserProfile(_ profile: UserProfile) async throws {
+        guard let userId = profile.id else { return }
+        var updatedProfile = profile
+        updatedProfile.updatedAt = Date()
+        try await db.collection("userProfiles").document(userId).setData(from: updatedProfile)
+    }
+    
+    func updateUserLastLogin(userId: String) async throws {
+        try await db.collection("userProfiles").document(userId).updateData([
+            "lastLoginAt": Date()
+        ])
+    }
+    
+    func deleteUserProfile(userId: String) async throws {
+        try await db.collection("userProfiles").document(userId).delete()
+    }
 }

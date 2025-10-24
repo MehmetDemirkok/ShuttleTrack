@@ -3,6 +3,7 @@ import FirebaseAuth
 
 struct ProfileView: View {
     @StateObject private var appViewModel = AppViewModel()
+    @StateObject private var profileViewModel = ProfileViewModel()
     @StateObject private var statisticsService = StatisticsService()
     @State private var showingLogoutAlert = false
     @State private var showingEditProfile = false
@@ -31,7 +32,7 @@ struct ProfileView: View {
                         
                         // User Info
                         VStack(spacing: 8) {
-                            Text(getUserName())
+                            Text(getUserDisplayName())
                                 .font(.title2)
                                 .fontWeight(.bold)
                                 .foregroundColor(.primary)
@@ -40,13 +41,31 @@ struct ProfileView: View {
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                             
-                            if let company = appViewModel.currentCompany {
-                                Text(company.name)
+                            if let profile = profileViewModel.userProfile {
+                                Text(profile.role.displayName)
                                     .font(.caption)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
                                     .background(Color.blue.opacity(0.1))
                                     .foregroundColor(.blue)
+                                    .cornerRadius(12)
+                            } else if profileViewModel.isLoading {
+                                Text("Profil yükleniyor...")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Text("Profil oluşturuluyor...")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                            }
+                            
+                            if let company = appViewModel.currentCompany {
+                                Text(company.name)
+                                    .font(.caption)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Color.green.opacity(0.1))
+                                    .foregroundColor(.green)
                                     .cornerRadius(12)
                             }
                         }
@@ -199,27 +218,66 @@ struct ProfileView: View {
                 if let companyId = appViewModel.currentCompany?.id {
                     statisticsService.startRealTimeUpdates(for: companyId)
                 }
+                
+                // Load user profile
+                profileViewModel.loadUserProfile()
             }
             .onDisappear {
                 statisticsService.stopRealTimeUpdates()
+            }
+            .overlay(
+                Group {
+                    if profileViewModel.isLoading {
+                        Color.black.opacity(0.3)
+                            .ignoresSafeArea()
+                        
+                        VStack {
+                            ProgressView()
+                                .scaleEffect(1.5)
+                            Text("Yükleniyor...")
+                                .font(.caption)
+                                .foregroundColor(.white)
+                                .padding(.top, 8)
+                        }
+                    }
+                }
+            )
+            .alert("Hata", isPresented: .constant(!profileViewModel.errorMessage.isEmpty)) {
+                Button("Tamam") {
+                    profileViewModel.clearMessages()
+                }
+            } message: {
+                Text(profileViewModel.errorMessage)
+            }
+            .alert("Başarılı", isPresented: .constant(!profileViewModel.successMessage.isEmpty)) {
+                Button("Tamam") {
+                    profileViewModel.clearMessages()
+                }
+            } message: {
+                Text(profileViewModel.successMessage)
             }
         }
     }
     
     // MARK: - Helper Functions
-    private func getUserName() -> String {
-        if let user = appViewModel.currentUser {
+    private func getUserDisplayName() -> String {
+        if let profile = profileViewModel.userProfile {
+            return profile.displayName
+        } else if let user = appViewModel.currentUser {
             return user.displayName ?? "Kullanıcı"
         }
         return "Kullanıcı"
     }
     
     private func getUserEmail() -> String {
+        if let profile = profileViewModel.userProfile {
+            return profile.email
+        }
         return appViewModel.currentUser?.email ?? "E-posta bulunamadı"
     }
     
     private func getUserInitials() -> String {
-        let name = getUserName()
+        let name = getUserDisplayName()
         let components = name.components(separatedBy: " ")
         if components.count >= 2 {
             return String(components[0].prefix(1)) + String(components[1].prefix(1))
@@ -370,8 +428,17 @@ struct ProfileActionButton: View {
 
 struct EditProfileView: View {
     @Environment(\.presentationMode) var presentationMode
+    @StateObject private var profileViewModel = ProfileViewModel()
+    @StateObject private var appViewModel = AppViewModel()
+    
     @State private var displayName = ""
     @State private var email = ""
+    @State private var phoneNumber = ""
+    @State private var selectedRole: UserProfile.UserRole = .admin
+    @State private var showingPasswordChange = false
+    @State private var currentPassword = ""
+    @State private var newPassword = ""
+    @State private var confirmPassword = ""
     
     var body: some View {
         NavigationView {
@@ -384,12 +451,41 @@ struct EditProfileView: View {
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
+                        .disabled(true) // Email can't be changed easily
+                    
+                    TextField("Telefon", text: $phoneNumber)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .keyboardType(.phonePad)
+                    
+                    Picker("Rol", selection: $selectedRole) {
+                        ForEach(UserProfile.UserRole.allCases, id: \.self) { role in
+                            Text(role.displayName).tag(role)
+                        }
+                    }
+                    .pickerStyle(MenuPickerStyle())
                 }
                 
-                Section(header: Text("Bilgi")) {
-                    Text("Profil düzenleme özelliği yakında eklenecek.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                Section(header: Text("Güvenlik")) {
+                    Button("Şifre Değiştir") {
+                        showingPasswordChange = true
+                    }
+                    .foregroundColor(.blue)
+                }
+                
+                if !profileViewModel.errorMessage.isEmpty {
+                    Section {
+                        Text(profileViewModel.errorMessage)
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
+                }
+                
+                if !profileViewModel.successMessage.isEmpty {
+                    Section {
+                        Text(profileViewModel.successMessage)
+                            .foregroundColor(.green)
+                            .font(.caption)
+                    }
                 }
             }
             .navigationTitle("Profil Düzenle")
@@ -399,10 +495,123 @@ struct EditProfileView: View {
                     presentationMode.wrappedValue.dismiss()
                 },
                 trailing: Button("Kaydet") {
-                    // Save profile logic
-                    presentationMode.wrappedValue.dismiss()
+                    saveProfile()
                 }
+                .disabled(profileViewModel.isLoading)
             )
+            .onAppear {
+                loadCurrentProfile()
+            }
+            .sheet(isPresented: $showingPasswordChange) {
+                PasswordChangeView(
+                    currentPassword: $currentPassword,
+                    newPassword: $newPassword,
+                    confirmPassword: $confirmPassword,
+                    profileViewModel: profileViewModel
+                )
+            }
+        }
+    }
+    
+    private func loadCurrentProfile() {
+        if let profile = profileViewModel.userProfile {
+            displayName = profile.displayName
+            email = profile.email
+            phoneNumber = profile.phoneNumber ?? ""
+            selectedRole = profile.role
+        } else if let user = appViewModel.currentUser {
+            displayName = user.displayName ?? ""
+            email = user.email ?? ""
+        }
+    }
+    
+    private func saveProfile() {
+        profileViewModel.updateProfile(
+            displayName: displayName,
+            phoneNumber: phoneNumber.isEmpty ? nil : phoneNumber,
+            role: selectedRole
+        )
+        
+        // Close the view after a short delay to show success message
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            if profileViewModel.successMessage.isEmpty == false {
+                presentationMode.wrappedValue.dismiss()
+            }
+        }
+    }
+}
+
+struct PasswordChangeView: View {
+    @Environment(\.presentationMode) var presentationMode
+    @Binding var currentPassword: String
+    @Binding var newPassword: String
+    @Binding var confirmPassword: String
+    @ObservedObject var profileViewModel: ProfileViewModel
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Mevcut Şifre")) {
+                    SecureField("Mevcut Şifre", text: $currentPassword)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                }
+                
+                Section(header: Text("Yeni Şifre")) {
+                    SecureField("Yeni Şifre", text: $newPassword)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    
+                    SecureField("Şifre Tekrar", text: $confirmPassword)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                }
+                
+                if !profileViewModel.errorMessage.isEmpty {
+                    Section {
+                        Text(profileViewModel.errorMessage)
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
+                }
+                
+                if !profileViewModel.successMessage.isEmpty {
+                    Section {
+                        Text(profileViewModel.successMessage)
+                            .foregroundColor(.green)
+                            .font(.caption)
+                    }
+                }
+            }
+            .navigationTitle("Şifre Değiştir")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarItems(
+                leading: Button("İptal") {
+                    presentationMode.wrappedValue.dismiss()
+                },
+                trailing: Button("Kaydet") {
+                    changePassword()
+                }
+                .disabled(profileViewModel.isLoading || !isPasswordValid)
+            )
+        }
+    }
+    
+    private var isPasswordValid: Bool {
+        return !currentPassword.isEmpty &&
+               !newPassword.isEmpty &&
+               newPassword == confirmPassword &&
+               newPassword.count >= 6
+    }
+    
+    private func changePassword() {
+        profileViewModel.updatePassword(
+            currentPassword: currentPassword,
+            newPassword: newPassword
+        )
+        
+        // Close the view after a short delay to show success message
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            if profileViewModel.successMessage.isEmpty == false {
+                presentationMode.wrappedValue.dismiss()
+            }
         }
     }
 }
