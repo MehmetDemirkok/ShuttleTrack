@@ -2,6 +2,7 @@ import Foundation
 import FirebaseFirestore
 import Combine
 
+@MainActor
 class StatisticsService: ObservableObject {
     @Published var totalVehicles = 0
     @Published var activeDrivers = 0
@@ -292,6 +293,8 @@ class StatisticsService: ObservableObject {
     
     // Deinitializer - Memory leak önleme
     deinit {
-        stopRealTimeUpdates()
+        Task { @MainActor in
+            stopRealTimeUpdates()
+        }
     }
 }

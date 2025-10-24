@@ -1,44 +1,31 @@
 import Foundation
 import FirebaseFirestore
 
-struct UserProfile: Identifiable, Codable {
-    @DocumentID var id: String?
-    var userId: String
-    var displayName: String
+struct UserProfile: Codable, Identifiable {
+    var id: String?
+    let userId: String
+    var userType: UserType
     var email: String
-    var phoneNumber: String?
-    var profileImageURL: String?
-    var companyId: String
-    var role: UserRole
-    var isActive: Bool
-    var createdAt: Date
-    var updatedAt: Date
+    var fullName: String
+    var phone: String?
+    var companyId: String?
+    var driverLicenseNumber: String?
+    let isActive: Bool
+    let createdAt: Date
+    var updatedAt: Date?
     var lastLoginAt: Date?
     
-    enum UserRole: String, CaseIterable, Codable {
-        case admin = "admin"
-        case manager = "manager"
-        case driver = "driver"
-        case dispatcher = "dispatcher"
-        
-        var displayName: String {
-            switch self {
-            case .admin: return "Yönetici"
-            case .manager: return "Müdür"
-            case .driver: return "Şoför"
-            case .dispatcher: return "Sevk Memuru"
-            }
-        }
-    }
-    
-    init(userId: String, displayName: String, email: String, companyId: String, role: UserRole = .admin) {
+    init(userId: String, userType: UserType, email: String, fullName: String, phone: String? = nil, companyId: String? = nil, driverLicenseNumber: String? = nil) {
         self.userId = userId
-        self.displayName = displayName
+        self.userType = userType
         self.email = email
+        self.fullName = fullName
+        self.phone = phone
         self.companyId = companyId
-        self.role = role
+        self.driverLicenseNumber = driverLicenseNumber
         self.isActive = true
         self.createdAt = Date()
-        self.updatedAt = Date()
+        self.updatedAt = nil
+        self.lastLoginAt = nil
     }
 }

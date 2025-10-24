@@ -17,7 +17,10 @@ class ProfileViewModel: ObservableObject {
     }
     
     func loadUserProfile() {
-        guard let user = Auth.auth().currentUser else { return }
+        guard let user = Auth.auth().currentUser else { 
+            errorMessage = "Kullanıcı oturumu bulunamadı"
+            return 
+        }
         
         isLoading = true
         errorMessage = ""
@@ -27,13 +30,23 @@ class ProfileViewModel: ObservableObject {
                 let document = try await db.collection("userProfiles").document(user.uid).getDocument()
                 
                 if document.exists {
-                    let profile = try document.data(as: UserProfile.self)
-                    await MainActor.run {
-                        self.userProfile = profile
-                        self.isLoading = false
+                    do {
+                        let profile = try document.data(as: UserProfile.self)
+                        await MainActor.run {
+                            self.userProfile = profile
+                            self.isLoading = false
+                        }
+                    } catch {
+                        // Eğer veri formatı uyumsuzsa, varsayılan profil oluştur
+                        print("Profil verisi uyumsuz, yeni profil oluşturuluyor: \(error)")
+                        await MainActor.run {
+                            self.isLoading = false
+                            self.createUserProfile()
+                        }
                     }
                 } else {
                     // Profil bulunamadı, yeni profil oluştur
+                    print("Profil bulunamadı, yeni profil oluşturuluyor")
                     await MainActor.run {
                         self.isLoading = false
                         self.createUserProfile()
@@ -48,7 +61,7 @@ class ProfileViewModel: ObservableObject {
         }
     }
     
-    func updateProfile(displayName: String, phoneNumber: String?, role: UserProfile.UserRole) {
+    func updateProfile(fullName: String, phone: String?, userType: UserType) {
         guard var profile = userProfile else {
             errorMessage = "Profil bulunamadı"
             return
@@ -58,9 +71,9 @@ class ProfileViewModel: ObservableObject {
         errorMessage = ""
         successMessage = ""
         
-        profile.displayName = displayName
-        profile.phoneNumber = phoneNumber
-        profile.role = role
+        profile.fullName = fullName
+        profile.phone = phone
+        profile.userType = userType
         profile.updatedAt = Date()
         
         Task {
@@ -68,14 +81,14 @@ class ProfileViewModel: ObservableObject {
                 guard let userId = profile.id else { return }
                 var updatedProfile = profile
                 updatedProfile.updatedAt = Date()
-                try await db.collection("userProfiles").document(userId).setData(from: updatedProfile)
-                await MainActor.run {
+                try await db.collection("userProfiles").document(userId).setData(from: updatedProfile, merge: true)
+                DispatchQueue.main.async {
                     self.userProfile = profile
                     self.isLoading = false
                     self.successMessage = "Profil başarıyla güncellendi"
                 }
             } catch {
-                await MainActor.run {
+                DispatchQueue.main.async {
                     self.errorMessage = "Profil güncellenirken hata oluştu: \(error.localizedDescription)"
                     self.isLoading = false
                 }
@@ -92,23 +105,23 @@ class ProfileViewModel: ObservableObject {
         
         Task {
             do {
-                try await user.updateEmail(to: newEmail)
+                try await user.sendEmailVerification(beforeUpdatingEmail: newEmail)
                 
                 // Update profile in Firestore
                 if var profile = userProfile {
                     profile.email = newEmail
                     profile.updatedAt = Date()
                     guard let userId = profile.id else { return }
-                    try await db.collection("userProfiles").document(userId).setData(from: profile)
+                    try await db.collection("userProfiles").document(userId).setData(from: profile, merge: true)
                     
-                    await MainActor.run {
+                    DispatchQueue.main.async {
                         self.userProfile = profile
                         self.isLoading = false
                         self.successMessage = "E-posta adresi başarıyla güncellendi"
                     }
                 }
             } catch {
-                await MainActor.run {
+                DispatchQueue.main.async {
                     self.errorMessage = "E-posta güncellenirken hata oluştu: \(error.localizedDescription)"
                     self.isLoading = false
                 }
@@ -146,35 +159,35 @@ class ProfileViewModel: ObservableObject {
     }
     
     func createUserProfile() {
-        guard let user = Auth.auth().currentUser,
-              let companyId = getCurrentCompanyId() else { 
-            errorMessage = "Kullanıcı veya şirket bilgisi bulunamadı"
+        guard let user = Auth.auth().currentUser else { 
+            errorMessage = "Kullanıcı oturumu bulunamadı"
             return 
         }
         
         isLoading = true
         errorMessage = ""
         
-        let newProfile = UserProfile(
+        var newProfile = UserProfile(
             userId: user.uid,
-            displayName: user.displayName ?? "",
+            userType: .companyAdmin,
             email: user.email ?? "",
-            companyId: companyId,
-            role: .admin
+            fullName: user.displayName ?? "",
+            phone: nil,
+            companyId: getCurrentCompanyId(),
+            driverLicenseNumber: nil
         )
+        newProfile.id = newProfile.userId
         
         Task {
             do {
-                var profileData = newProfile
-                profileData.id = newProfile.userId
-                try await db.collection("userProfiles").document(newProfile.userId).setData(from: profileData)
-                await MainActor.run {
+                try await db.collection("userProfiles").document(newProfile.userId).setData(from: newProfile)
+                DispatchQueue.main.async {
                     self.userProfile = newProfile
                     self.isLoading = false
                     self.successMessage = "Profil başarıyla oluşturuldu"
                 }
             } catch {
-                await MainActor.run {
+                DispatchQueue.main.async {
                     self.errorMessage = "Profil oluşturulurken hata oluştu: \(error.localizedDescription)"
                     self.isLoading = false
                 }

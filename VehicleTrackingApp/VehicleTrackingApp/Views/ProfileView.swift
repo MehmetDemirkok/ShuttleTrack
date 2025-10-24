@@ -43,7 +43,7 @@ struct ProfileView: View {
                                 .foregroundColor(.secondary)
                             
                             if let profile = profileViewModel.userProfile {
-                                Text(profile.role.displayName)
+                                Text(profile.userType.displayName)
                                     .font(.caption)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
@@ -266,7 +266,7 @@ struct ProfileView: View {
     // MARK: - Helper Functions
     private func getUserDisplayName() -> String {
         if let profile = profileViewModel.userProfile {
-            return profile.displayName.isEmpty ? "Ad Soyad Girin" : profile.displayName
+            return profile.fullName.isEmpty ? "Ad Soyad Girin" : profile.fullName
         } else if let user = appViewModel.currentUser {
             return user.displayName?.isEmpty == false ? user.displayName! : "Ad Soyad Girin"
         }
@@ -303,13 +303,13 @@ struct ProfileView: View {
     private func updateFirebaseDisplayName() {
         guard let user = Auth.auth().currentUser,
               let profile = profileViewModel.userProfile,
-              !profile.displayName.isEmpty,
-              user.displayName != profile.displayName else { return }
+              !profile.fullName.isEmpty,
+              user.displayName != profile.fullName else { return }
         
         Task {
             do {
                 let changeRequest = user.createProfileChangeRequest()
-                changeRequest.displayName = profile.displayName
+                changeRequest.displayName = profile.fullName
                 try await changeRequest.commitChanges()
             } catch {
                 print("Firebase displayName güncellenirken hata: \(error)")
@@ -452,10 +452,10 @@ struct EditProfileView: View {
     @StateObject private var profileViewModel = ProfileViewModel()
     @StateObject private var appViewModel = AppViewModel()
     
-    @State private var displayName = ""
+    @State private var fullName = ""
     @State private var email = ""
-    @State private var phoneNumber = ""
-    @State private var selectedRole: UserProfile.UserRole = .admin
+    @State private var phone = ""
+    @State private var selectedUserType: UserType = .companyAdmin
     @State private var showingPasswordChange = false
     @State private var currentPassword = ""
     @State private var newPassword = ""
@@ -465,7 +465,7 @@ struct EditProfileView: View {
         NavigationView {
             Form {
                 Section(header: Text("Kişisel Bilgiler")) {
-                    TextField("Ad Soyad", text: $displayName)
+                    TextField("Ad Soyad", text: $fullName)
                         .textFieldStyle(ShuttleTrackTextFieldStyle())
                     
                     TextField("E-posta", text: $email)
@@ -474,13 +474,13 @@ struct EditProfileView: View {
                         .autocapitalization(.none)
                         .disabled(true) // Email can't be changed easily
                     
-                    TextField("Telefon", text: $phoneNumber)
+                    TextField("Telefon", text: $phone)
                         .textFieldStyle(ShuttleTrackTextFieldStyle())
                         .keyboardType(.phonePad)
                     
-                    Picker("Rol", selection: $selectedRole) {
-                        ForEach(UserProfile.UserRole.allCases, id: \.self) { role in
-                            Text(role.displayName).tag(role)
+                    Picker("Kullanıcı Tipi", selection: $selectedUserType) {
+                        ForEach(UserType.allCases, id: \.self) { userType in
+                            Text(userType.displayName).tag(userType)
                         }
                     }
                     .pickerStyle(MenuPickerStyle())
@@ -554,10 +554,10 @@ struct EditProfileView: View {
             .onReceive(profileViewModel.$userProfile) { profile in
                 // ProfileViewModel'den veri geldiğinde form alanlarını güncelle
                 if let profile = profile {
-                    displayName = profile.displayName
+                    fullName = profile.fullName
                     email = profile.email
-                    phoneNumber = profile.phoneNumber ?? ""
-                    selectedRole = profile.role
+                    phone = profile.phone ?? ""
+                    selectedUserType = profile.userType
                 }
             }
             .sheet(isPresented: $showingPasswordChange) {
@@ -574,17 +574,17 @@ struct EditProfileView: View {
     private func loadCurrentProfile() {
         // Önce ProfileViewModel'den veri yüklemeyi dene
         if let profile = profileViewModel.userProfile {
-            displayName = profile.displayName
+            fullName = profile.fullName
             email = profile.email
-            phoneNumber = profile.phoneNumber ?? ""
-            selectedRole = profile.role
+            phone = profile.phone ?? ""
+            selectedUserType = profile.userType
         } else {
             // ProfileViewModel'de veri yoksa Firebase Auth'dan yükle
             if let user = appViewModel.currentUser {
-                displayName = user.displayName ?? ""
+                fullName = user.displayName ?? ""
                 email = user.email ?? ""
-                phoneNumber = ""
-                selectedRole = .admin // Default role
+                phone = ""
+                selectedUserType = .companyAdmin // Default user type
             }
             
             // ProfileViewModel'den veri yüklemeyi tekrar dene
@@ -594,9 +594,9 @@ struct EditProfileView: View {
     
     private func saveProfile() {
         profileViewModel.updateProfile(
-            displayName: displayName,
-            phoneNumber: phoneNumber.isEmpty ? nil : phoneNumber,
-            role: selectedRole
+            fullName: fullName,
+            phone: phone.isEmpty ? nil : phone,
+            userType: selectedUserType
         )
         
         // Close the view after a short delay to show success message

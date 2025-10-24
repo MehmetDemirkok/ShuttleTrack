@@ -1,6 +1,6 @@
 import Foundation
 
-struct Trip: Identifiable, Codable {
+struct Trip: Identifiable, Codable, @unchecked Sendable {
     let id: String
     var title: String
     var description: String

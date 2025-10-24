@@ -208,7 +208,7 @@ struct TripRowView: View {
                 }
             }
             
-            if let vehicleId = trip.assignedVehicleId, let driverId = trip.assignedDriverId {
+            if let _ = trip.assignedVehicleId, let _ = trip.assignedDriverId {
                 HStack {
                     Text("🚗 Araç atanmış")
                         .font(.caption2)

@@ -6,6 +6,11 @@ struct SignUpView: View {
     @Environment(\.presentationMode) var presentationMode
     @State private var companyName = ""
     @State private var displayName = ""
+    @State private var fullName = ""
+    @State private var phone = ""
+    @State private var selectedUserType: UserType = .companyAdmin
+    @State private var address = ""
+    @State private var licenseNumber = ""
     @State private var email = ""
     @State private var password = ""
     @State private var confirmPassword = ""
@@ -15,29 +20,110 @@ struct SignUpView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
-                Text("Hesap Oluştur")
+                Text("Kayıt Ol")
                     .font(.largeTitle)
                     .fontWeight(.bold)
                     .padding(.top, 20)
                 
                 VStack(spacing: 15) {
-                    TextField("Şirket Adı", text: $companyName)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    // Kullanıcı Tipi Seçimi
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Kullanıcı Tipi")
+                            .font(.headline)
+                            .foregroundColor(.blue)
+                        
+                        ForEach(UserType.allCases, id: \.self) { userType in
+                            Button(action: {
+                                selectedUserType = userType
+                            }) {
+                                HStack {
+                                    Image(systemName: userType.icon)
+                                        .foregroundColor(selectedUserType == userType ? .white : .blue)
+                                        .frame(width: 20)
+                                    
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(userType.displayName)
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(selectedUserType == userType ? .white : .primary)
+                                        
+                                        Text(userType.description)
+                                            .font(.caption)
+                                            .foregroundColor(selectedUserType == userType ? .white.opacity(0.8) : .secondary)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    if selectedUserType == userType {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.white)
+                                    }
+                                }
+                                .padding()
+                                .background(selectedUserType == userType ? Color.blue : Color.gray.opacity(0.1))
+                                .cornerRadius(10)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(selectedUserType == userType ? Color.blue : Color.gray.opacity(0.3), lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
                     
-                    TextField("Ad Soyad", text: $displayName)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .autocapitalization(.words)
+                    Divider()
                     
-                    TextField("E-posta", text: $email)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .keyboardType(.emailAddress)
-                        .autocapitalization(.none)
+                    // Kişisel Bilgiler
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Kişisel Bilgiler")
+                            .font(.headline)
+                            .foregroundColor(.blue)
+                        
+                        TextField("Ad Soyad", text: $fullName)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                        
+                        TextField("Telefon", text: $phone)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .keyboardType(.phonePad)
+                    }
                     
-                    SecureField("Şifre", text: $password)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    // Şirket Bilgileri (sadece şirket yetkilisi için)
+                    if selectedUserType == .companyAdmin {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Şirket Bilgileri")
+                                .font(.headline)
+                                .foregroundColor(.blue)
+                            
+                            TextField("Şirket Adı", text: $companyName)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                            
+                            TextField("Adres", text: $address)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                            
+                            TextField("Lisans Numarası", text: $licenseNumber)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                        }
+                    }
                     
-                    SecureField("Şifre Tekrar", text: $confirmPassword)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    Divider()
+                    
+                    // Hesap Bilgileri
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Hesap Bilgileri")
+                            .font(.headline)
+                            .foregroundColor(.blue)
+                        
+                        TextField("E-posta", text: $email)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .keyboardType(.emailAddress)
+                            .autocapitalization(.none)
+                        
+                        SecureField("Şifre", text: $password)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                        
+                        SecureField("Şifre Tekrar", text: $confirmPassword)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
                     
                     if !errorMessage.isEmpty {
                         Text(errorMessage)
@@ -49,17 +135,18 @@ struct SignUpView: View {
                         HStack {
                             if isLoading {
                                 ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                     .scaleEffect(0.8)
                             }
-                            Text("Hesap Oluştur")
+                            Text(isLoading ? "Kayıt Olunuyor..." : "Kayıt Ol")
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color.blue)
                         .foregroundColor(.white)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.blue)
                         .cornerRadius(10)
                     }
-                    .disabled(isLoading || companyName.isEmpty || displayName.isEmpty || email.isEmpty || password.isEmpty || password != confirmPassword)
+                    .disabled(isLoading || !isFormValid)
                 }
                 .padding(.horizontal, 30)
                 
@@ -72,6 +159,27 @@ struct SignUpView: View {
                 }
             )
         }
+    }
+    
+    private var isFormValid: Bool {
+        let basicValidation = !email.isEmpty &&
+        !password.isEmpty &&
+        !confirmPassword.isEmpty &&
+        !fullName.isEmpty &&
+        !phone.isEmpty &&
+        password == confirmPassword &&
+        password.count >= 6
+        
+        if selectedUserType == .companyAdmin {
+            return basicValidation &&
+            !companyName.isEmpty &&
+            !address.isEmpty &&
+            !licenseNumber.isEmpty
+        } else if selectedUserType == .driver {
+            return basicValidation
+        }
+        
+        return basicValidation
     }
     
     private func signUp() {
@@ -94,39 +202,38 @@ struct SignUpView: View {
     private func saveCompanyAndProfileData(user: User) {
         let db = Firestore.firestore()
         
-        // Şirket verilerini kaydet
-        let company = Company(
+        // Şirket verilerini kaydet (sadece şirket yetkilisi için)
+        let company = selectedUserType == .companyAdmin ? Company(
             id: user.uid,
             name: companyName,
             email: email,
-            phone: "",
-            address: ""
-        )
+            phone: phone,
+            address: address
+        ) : nil
         
         // Kullanıcı profilini oluştur
         let userProfile = UserProfile(
             userId: user.uid,
-            displayName: displayName,
+            userType: selectedUserType,
             email: email,
-            companyId: user.uid,
-            role: .admin
+            fullName: fullName,
+            phone: phone,
+            companyId: selectedUserType == .companyAdmin ? user.uid : nil,
+            driverLicenseNumber: nil
         )
         
         // Firebase'e kaydet
         Task {
             do {
-                // Şirket verilerini kaydet
-                try await db.collection("companies").document(user.uid).setData(from: company)
+                // Şirket verilerini kaydet (sadece şirket yetkilisi için)
+                if let company = company {
+                    try await db.collection("companies").document(user.uid).setData(from: company)
+                }
                 
                 // Kullanıcı profilini kaydet
                 var profileData = userProfile
-                profileData.id = user.uid
-                try await db.collection("userProfiles").document(user.uid).setData(from: profileData)
-                
-                // Kullanıcı adını güncelle
-                let changeRequest = user.createProfileChangeRequest()
-                changeRequest.displayName = displayName
-                try await changeRequest.commitChanges()
+                profileData.id = userProfile.userId
+                try await db.collection("userProfiles").document(userProfile.userId).setData(from: profileData)
                 
                 await MainActor.run {
                     self.isLoading = false

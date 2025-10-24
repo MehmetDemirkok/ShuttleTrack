@@ -7,10 +7,13 @@ struct SignUpView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var confirmPassword = ""
-    @State private var companyName = ""
+    @State private var fullName = ""
     @State private var phone = ""
+    @State private var selectedUserType: UserType = .companyAdmin
+    @State private var companyName = ""
     @State private var address = ""
     @State private var licenseNumber = ""
+    @State private var driverLicenseNumber = ""
     
     var body: some View {
         NavigationView {
@@ -22,7 +25,7 @@ struct SignUpView: View {
                             .font(.system(size: 50))
                             .foregroundColor(.blue)
                         
-                        Text("Şirket Kaydı")
+                        Text("Kayıt Ol")
                             .font(.largeTitle)
                             .fontWeight(.bold)
                     }
@@ -30,24 +33,91 @@ struct SignUpView: View {
                     
                     // Form
                     VStack(spacing: 15) {
-                        // Şirket Bilgileri
+                        // Kullanıcı Tipi Seçimi
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Şirket Bilgileri")
+                            Text("Kullanıcı Tipi")
                                 .font(.headline)
                                 .foregroundColor(.blue)
                             
-                            TextField("Şirket Adı", text: $companyName)
+                            ForEach(UserType.allCases, id: \.self) { userType in
+                                Button(action: {
+                                    selectedUserType = userType
+                                }) {
+                                    HStack {
+                                        Image(systemName: userType.icon)
+                                            .foregroundColor(selectedUserType == userType ? .white : .blue)
+                                            .frame(width: 20)
+                                        
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(userType.displayName)
+                                                .font(.subheadline)
+                                                .fontWeight(.medium)
+                                                .foregroundColor(selectedUserType == userType ? .white : .primary)
+                                            
+                                            Text(userType.description)
+                                                .font(.caption)
+                                                .foregroundColor(selectedUserType == userType ? .white.opacity(0.8) : .secondary)
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        if selectedUserType == userType {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundColor(.white)
+                                        }
+                                    }
+                                    .padding()
+                                    .background(selectedUserType == userType ? Color.blue : Color.gray.opacity(0.1))
+                                    .cornerRadius(10)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(selectedUserType == userType ? Color.blue : Color.clear, lineWidth: 2)
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // Kişisel Bilgiler
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Kişisel Bilgiler")
+                                .font(.headline)
+                                .foregroundColor(.blue)
+                            
+                            TextField("Ad Soyad", text: $fullName)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
                             
                             TextField("Telefon", text: $phone)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
                                 .keyboardType(.phonePad)
-                            
-                            TextField("Adres", text: $address)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
-                            
-                            TextField("Lisans Numarası", text: $licenseNumber)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                        }
+                        
+                        // Koşullu Form Alanları
+                        if selectedUserType == .companyAdmin {
+                            // Şirket Bilgileri
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Şirket Bilgileri")
+                                    .font(.headline)
+                                    .foregroundColor(.blue)
+                                
+                                TextField("Şirket Adı", text: $companyName)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                                
+                                TextField("Adres", text: $address)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                                
+                                TextField("Lisans Numarası", text: $licenseNumber)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                            }
+                        } else if selectedUserType == .driver {
+                            // Sürücü Bilgileri
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Sürücü Bilgileri")
+                                    .font(.headline)
+                                    .foregroundColor(.blue)
+                                
+                                TextField("Ehliyet Numarası", text: $driverLicenseNumber)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                            }
                         }
                         
                         Divider()
@@ -102,27 +172,45 @@ struct SignUpView: View {
     }
     
     private var isFormValid: Bool {
-        !email.isEmpty &&
+        let basicValidation = !email.isEmpty &&
         !password.isEmpty &&
         !confirmPassword.isEmpty &&
-        !companyName.isEmpty &&
+        !fullName.isEmpty &&
         !phone.isEmpty &&
-        !address.isEmpty &&
-        !licenseNumber.isEmpty &&
         password == confirmPassword &&
         password.count >= 6
+        
+        if selectedUserType == .companyAdmin {
+            return basicValidation &&
+            !companyName.isEmpty &&
+            !address.isEmpty &&
+            !licenseNumber.isEmpty
+        } else if selectedUserType == .driver {
+            return basicValidation &&
+            !driverLicenseNumber.isEmpty
+        }
+        
+        return basicValidation
     }
     
     private func signUp() async {
-        let company = Company(
+        let company = selectedUserType == .companyAdmin ? Company(
             name: companyName,
             email: email,
             phone: phone,
             address: address,
             licenseNumber: licenseNumber
-        )
+        ) : nil
         
-        await appViewModel.signUp(email: email, password: password, company: company)
+        await appViewModel.signUp(
+            email: email,
+            password: password,
+            company: company,
+            userType: selectedUserType,
+            fullName: fullName,
+            phone: phone,
+            driverLicenseNumber: selectedUserType == .driver ? driverLicenseNumber : nil
+        )
         
         if appViewModel.isAuthenticated {
             presentationMode.wrappedValue.dismiss()
