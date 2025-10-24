@@ -3,6 +3,7 @@ import FirebaseAuth
 
 struct DashboardView: View {
     @StateObject private var appViewModel = AppViewModel()
+    @StateObject private var statisticsService = StatisticsService()
     @State private var selectedTab = 0
     @State private var showingProfile = false
     
@@ -78,10 +79,30 @@ struct DashboardView: View {
                             GridItem(.flexible()),
                             GridItem(.flexible())
                         ], spacing: 16) {
-                            StatCard(title: "Toplam Araç", value: "12", icon: "car.fill", color: .blue)
-                            StatCard(title: "Aktif Şoför", value: "8", icon: "person.fill", color: .green)
-                            StatCard(title: "Bugünkü İşler", value: "15", icon: "list.bullet", color: .orange)
-                            StatCard(title: "Tamamlanan", value: "23", icon: "checkmark.circle.fill", color: .purple)
+                            StatCard(
+                                title: "Toplam Araç", 
+                                value: statisticsService.isLoading ? "..." : "\(statisticsService.totalVehicles)", 
+                                icon: "car.fill", 
+                                color: .blue
+                            )
+                            StatCard(
+                                title: "Aktif Şoför", 
+                                value: statisticsService.isLoading ? "..." : "\(statisticsService.activeDrivers)", 
+                                icon: "person.fill", 
+                                color: .green
+                            )
+                            StatCard(
+                                title: "Bugünkü İşler", 
+                                value: statisticsService.isLoading ? "..." : "\(statisticsService.todaysTrips)", 
+                                icon: "list.bullet", 
+                                color: .orange
+                            )
+                            StatCard(
+                                title: "Tamamlanan", 
+                                value: statisticsService.isLoading ? "..." : "\(statisticsService.completedTrips)", 
+                                icon: "checkmark.circle.fill", 
+                                color: .purple
+                            )
                         }
                         .padding(.horizontal)
                     }
@@ -167,6 +188,14 @@ struct DashboardView: View {
         }
         .sheet(isPresented: $showingProfile) {
             ProfileView()
+        }
+        .onAppear {
+            if let companyId = appViewModel.currentCompany?.id {
+                statisticsService.startRealTimeUpdates(for: companyId)
+            }
+        }
+        .onDisappear {
+            statisticsService.stopRealTimeUpdates()
         }
     }
     

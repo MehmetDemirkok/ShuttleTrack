@@ -3,6 +3,7 @@ import FirebaseAuth
 
 struct ProfileView: View {
     @StateObject private var appViewModel = AppViewModel()
+    @StateObject private var statisticsService = StatisticsService()
     @State private var showingLogoutAlert = false
     @State private var showingEditProfile = false
     
@@ -93,21 +94,21 @@ struct ProfileView: View {
                             HStack(spacing: 20) {
                                 StatCard(
                                     title: "Toplam Araç",
-                                    value: "0", // Bu değer Firebase'den gelecek
+                                    value: statisticsService.isLoading ? "..." : "\(statisticsService.totalVehicles)",
                                     icon: "car.fill",
                                     color: .blue
                                 )
                                 
                                 StatCard(
                                     title: "Aktif Şoför",
-                                    value: "0", // Bu değer Firebase'den gelecek
+                                    value: statisticsService.isLoading ? "..." : "\(statisticsService.activeDrivers)",
                                     icon: "person.fill",
                                     color: .green
                                 )
                                 
                                 StatCard(
                                     title: "Bu Ay İş",
-                                    value: "0", // Bu değer Firebase'den gelecek
+                                    value: statisticsService.isLoading ? "..." : "\(statisticsService.todaysTrips)",
                                     icon: "list.bullet.fill",
                                     color: .orange
                                 )
@@ -193,6 +194,14 @@ struct ProfileView: View {
             }
             .sheet(isPresented: $showingEditProfile) {
                 EditProfileView()
+            }
+            .onAppear {
+                if let companyId = appViewModel.currentCompany?.id {
+                    statisticsService.startRealTimeUpdates(for: companyId)
+                }
+            }
+            .onDisappear {
+                statisticsService.stopRealTimeUpdates()
             }
         }
     }
