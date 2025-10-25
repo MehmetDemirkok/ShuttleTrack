@@ -33,3 +33,4 @@ enum UserType: String, CaseIterable, Codable, Identifiable {
         }
     }
 }
+
